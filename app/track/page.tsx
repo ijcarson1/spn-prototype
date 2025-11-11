@@ -1,25 +1,41 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { RoleSwitcher } from "@/components/role-switcher"
-import { getUsers } from "@/lib/data-service"
-import type { User } from "@/lib/types"
+import { getReferrals } from "@/lib/data-service"
+import type { Referral } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function TrackPage() {
-  const [users, setUsers] = useState<User[]>([])
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [referrals, setReferrals] = useState<Referral[]>([])
+  const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null)
 
   useEffect(() => {
-    const allUsers = getUsers()
-    setUsers(allUsers)
+    const allReferrals = getReferrals()
+    setReferrals(allReferrals)
   }, [])
 
-  if (selectedUser) {
+  if (selectedReferral) {
     // Redirect to specific tracking page
-    window.location.href = `/track/${selectedUser.id}`
+    window.location.href = `/track/${selectedReferral.id}`
     return null
+  }
+
+  const getCurrentCycle = (referral: Referral) => {
+    if (!referral.cycles || referral.cycles.length === 0) return null
+    return referral.cycles[referral.cycles.length - 1]
+  }
+
+  const getReferralStatus = (referral: Referral) => {
+    const currentCycle = getCurrentCycle(referral)
+    if (!currentCycle) return "unknown"
+
+    const now = new Date()
+    const endDate = new Date(currentCycle.endDate)
+
+    if (currentCycle.cancelled) return "cancelled"
+    if (now > endDate) return "completed"
+    return "active"
   }
 
   return (
@@ -27,7 +43,6 @@ export default function TrackPage() {
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold">SPN - Tracking</h1>
-          <RoleSwitcher />
         </div>
       </header>
 
@@ -36,24 +51,33 @@ export default function TrackPage() {
           <CardHeader>
             <CardTitle>End User Tracking</CardTitle>
             <CardDescription>
-              Select a user to view their tracking page (simulates accessing via SMS link)
+              Select a referral to view their tracking page (simulates accessing via SMS link)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              {users
-                .filter((u) => u.status === "active")
+              {referrals
+                .filter((r) => getReferralStatus(r) === "active")
                 .slice(0, 10)
-                .map((user) => (
-                  <Button
-                    key={user.id}
-                    variant="outline"
-                    className="w-full justify-start bg-transparent"
-                    onClick={() => setSelectedUser(user)}
-                  >
-                    {user.firstName} {user.lastName} - Week {user.currentWeek} of 8
-                  </Button>
-                ))}
+                .map((referral) => {
+                  const currentCycle = getCurrentCycle(referral)
+                  return (
+                    <Button
+                      key={referral.id}
+                      variant="outline"
+                      className="w-full justify-start bg-transparent"
+                      onClick={() => setSelectedReferral(referral)}
+                    >
+                      {referral.firstName} {referral.lastName}
+                      {currentCycle && ` - Active Referral`}
+                    </Button>
+                  )
+                })}
+              {referrals.filter((r) => getReferralStatus(r) === "active").length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No active referrals available for tracking
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

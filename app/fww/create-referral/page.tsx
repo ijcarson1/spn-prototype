@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { getContracts, getPantries, saveUser } from "@/lib/data-service"
-import type { User, Collection, FamilyComposition } from "@/lib/types"
+import { getContracts, getPantries, saveReferral } from "@/lib/data-service"
+import type { Referral, FamilyComposition } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,7 +38,7 @@ export default function CreateReferralPage() {
 
   const selectedContract = contracts.find((c) => c.id === Number(formData.contractId))
   const eligiblePantries = selectedContract
-    ? pantries.filter((p) => selectedContract.eligiblePantries.includes(p.id))
+    ? pantries.filter((p) => selectedContract.eligiblePantryIds?.includes(p.id) ?? false)
     : []
 
   const handleInputChange = (field: string, value: string) => {
@@ -111,8 +111,9 @@ export default function CreateReferralPage() {
 
     const trackingId = Math.random().toString(36).substring(2, 10)
     const startDate = new Date(formData.startDate)
+    const contract = contracts.find((c) => c.id === Number(formData.contractId))
     const endDate = new Date(startDate)
-    endDate.setDate(endDate.getDate() + 8 * 7)
+    endDate.setDate(endDate.getDate() + (contract?.cycleWeeks || 8) * 7) // use contract's cycleWeeks
 
     const familyComposition: FamilyComposition = {
       adults: Number(formData.adults),
@@ -122,23 +123,7 @@ export default function CreateReferralPage() {
       totalHousehold,
     }
 
-    // Generate collections for 8 weeks
-    const collections: Collection[] = []
-    for (let week = 1; week <= 8; week++) {
-      const collectionDate = new Date(startDate)
-      collectionDate.setDate(collectionDate.getDate() + (week - 1) * 7)
-
-      collections.push({
-        id: `${trackingId}-w${week}`,
-        userId: trackingId,
-        weekNumber: week,
-        expectedDate: collectionDate.toISOString().split("T")[0],
-        status: "pending",
-        pantryId: Number(formData.pantryId),
-      })
-    }
-
-    const newUser: User = {
+    const newReferral: Referral = {
       id: trackingId,
       firstName: formData.firstName,
       lastName: formData.lastName,
@@ -147,25 +132,29 @@ export default function CreateReferralPage() {
       familyComposition,
       dietaryRequirements: formData.dietaryRequirements || undefined,
       address: formData.address || undefined,
-      contractId: Number(formData.contractId),
       pantryId: Number(formData.pantryId),
       fwwId: 1, // Default to Jane Smith
-      status: "active",
-      cycleStartDate: startDate.toISOString().split("T")[0],
-      cycleEndDate: endDate.toISOString().split("T")[0],
-      currentWeek: 1,
+      cycles: [
+        {
+          contractId: Number(formData.contractId),
+          cycleStartDate: startDate.toISOString().split("T")[0], // fixed property names
+          cycleEndDate: endDate.toISOString().split("T")[0],
+          currentWeek: 1,
+          status: "active",
+        },
+      ],
       trackingUrl: `/track/${trackingId}`,
-      collectionsCompleted: 0,
-      collections,
+      collectionsCompleted: 0, // added missing property
+      collections: [], // added empty collections array
       createdAt: new Date().toISOString(),
       createdBy: "Jane Smith",
     }
 
-    saveUser(newUser)
+    saveReferral(newReferral)
 
     toast({
       title: "Referral created successfully!",
-      description: `${newUser.firstName} ${newUser.lastName} has been added to the programme.`,
+      description: `${newReferral.firstName} ${newReferral.lastName} has been added to the programme.`,
     })
 
     router.push(`/fww/referrals/${trackingId}`)
@@ -332,8 +321,6 @@ export default function CreateReferralPage() {
           </Card>
         )}
 
-        {/* ... existing code for steps 2-4 ... */}
-
         {/* Step 2: Contract Selection */}
         {step === 2 && (
           <Card>
@@ -369,11 +356,8 @@ export default function CreateReferralPage() {
                       <span className="text-muted-foreground">Cycle Length:</span> {selectedContract.cycleLength} weeks
                     </p>
                     <p>
-                      <span className="text-muted-foreground">Collection Day:</span> {selectedContract.collectionDay}
-                    </p>
-                    <p>
                       <span className="text-muted-foreground">Eligible Pantries:</span>{" "}
-                      {selectedContract.eligiblePantries.length}
+                      {selectedContract.eligiblePantryIds?.length ?? 0}
                     </p>
                   </div>
                 </div>
@@ -422,12 +406,12 @@ export default function CreateReferralPage() {
                     <p>
                       <span className="text-muted-foreground">Address:</span> {selectedPantry.address}
                     </p>
-                    <p>
-                      <span className="text-muted-foreground">Collection Day:</span> {selectedPantry.collectionDay}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Collection Time:</span> {selectedPantry.collectionTime}
-                    </p>
+                    {selectedPantry.contractCollectionDays && formData.contractId && (
+                      <p>
+                        <span className="text-muted-foreground">Collection Day:</span>{" "}
+                        {selectedPantry.contractCollectionDays[Number(formData.contractId)]?.collectionDay || "Not set"}
+                      </p>
+                    )}
                     <p>
                       <span className="text-muted-foreground">Coordinator:</span> {selectedPantry.coordinator}
                     </p>

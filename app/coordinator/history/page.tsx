@@ -10,7 +10,6 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarIcon, CheckCircle, XCircle } from "lucide-react"
-import { format } from "date-fns"
 import Link from "next/link"
 
 export default function CollectionHistoryPage() {
@@ -46,6 +45,19 @@ export default function CollectionHistoryPage() {
   const collected = dayCollections.filter((item) => item.collection?.status === "collected").length
   const noShows = dayCollections.filter((item) => item.collection?.status === "no-show").length
 
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+  }
+
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString)
+    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+  }
+
+  const formatFamilySize = (user: User) => {
+    return user.familyComposition?.totalHousehold || 0
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="space-y-6">
@@ -72,7 +84,7 @@ export default function CollectionHistoryPage() {
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="justify-start text-left font-normal bg-transparent">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(selectedDate, "PPP")}
+                    {formatDate(selectedDate)}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -118,7 +130,7 @@ export default function CollectionHistoryPage() {
         {/* Collections List */}
         <Card>
           <CardHeader>
-            <CardTitle>Collections for {format(selectedDate, "MMMM d, yyyy")}</CardTitle>
+            <CardTitle>Collections for {formatDate(selectedDate)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -148,11 +160,9 @@ export default function CollectionHistoryPage() {
                             )}
                           </div>
                           <div className="flex gap-4 mt-1 text-sm text-muted-foreground">
-                            <span>Family size: {user.familySize}</span>
+                            <span>Family size: {formatFamilySize(user)}</span>
                             <span>Week {collection?.weekNumber} of 8</span>
-                            {collection?.collectedAt && (
-                              <span>Collected at {format(new Date(collection.collectedAt), "h:mm a")}</span>
-                            )}
+                            {collection?.collectedAt && <span>Collected at {formatTime(collection.collectedAt)}</span>}
                           </div>
                         </div>
                       </div>

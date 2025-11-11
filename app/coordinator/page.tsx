@@ -1,18 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getUsers, getPantries, updateCollection } from "@/lib/data-service"
-import type { User, Pantry } from "@/lib/types"
+import { getReferrals, getPantries, updateCollection, calculateBoxesNeeded } from "@/lib/data-service"
+import type { Referral, Pantry } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { Search, CheckCircle, Clock } from "lucide-react"
-import { format } from "date-fns"
 
 export default function CoordinatorPage() {
-  const [users, setUsers] = useState<User[]>([])
+  const [referrals, setReferrals] = useState<Referral[]>([])
   const [pantry, setPantry] = useState<Pantry | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "family" | "time">("name")
@@ -24,51 +23,51 @@ export default function CoordinatorPage() {
 
   useEffect(() => {
     console.log("[v0] Coordinator page loading. Today is:", today.toDateString())
-    const allUsers = getUsers()
-    console.log("[v0] Total users loaded:", allUsers.length)
+    const allReferrals = getReferrals()
+    console.log("[v0] Total referrals loaded:", allReferrals.length)
     const pantries = getPantries()
     const myPantry = pantries.find((p) => p.id === coordinatorPantryId)
 
-    // Filter users who have collections today at this pantry
+    // Filter referrals who have collections today at this pantry
     const todayStr = today.toISOString().split("T")[0]
     console.log("[v0] Looking for collections on:", todayStr)
-    const todaysUsers = allUsers.filter((user) => {
+    const todaysReferrals = allReferrals.filter((referral) => {
       const hasCollection =
-        user.pantryId === coordinatorPantryId &&
-        user.collections.some((c) => {
-          console.log("[v0] Checking user", user.firstName, "collection date:", c.expectedDate, "vs", todayStr)
+        referral.pantryId === coordinatorPantryId &&
+        referral.collections.some((c) => {
+          console.log("[v0] Checking referral", referral.firstName, "collection date:", c.expectedDate, "vs", todayStr)
           return c.expectedDate === todayStr
         })
       return hasCollection
     })
-    console.log("[v0] Found users with collections today:", todaysUsers.length)
+    console.log("[v0] Found referrals with collections today:", todaysReferrals.length)
 
     setPantry(myPantry || null)
-    setUsers(todaysUsers)
+    setReferrals(todaysReferrals)
   }, [])
 
-  const todayCollections = users
-    .map((user) => {
+  const todayCollections = referrals
+    .map((referral) => {
       const todayStr = today.toISOString().split("T")[0]
-      const collection = user.collections.find((c) => c.expectedDate === todayStr)
-      return { user, collection }
+      const collection = referral.collections.find((c) => c.expectedDate === todayStr)
+      return { referral, collection }
     })
     .filter((item) => item.collection)
 
   const collected = todayCollections.filter((item) => item.collection?.status === "collected").length
   const pending = todayCollections.filter((item) => item.collection?.status === "pending").length
 
-  const handleMarkCollected = (userId: string, weekNumber: number) => {
+  const handleMarkCollected = (referralId: string, weekNumber: number) => {
     const now = new Date().toISOString()
-    updateCollection(userId, weekNumber, "collected", now)
+    updateCollection(referralId, weekNumber, "collected", now)
 
     // Refresh the data
-    const allUsers = getUsers()
+    const allReferrals = getReferrals()
     const todayStr = today.toISOString().split("T")[0]
-    const todaysUsers = allUsers.filter((user) => {
-      return user.pantryId === coordinatorPantryId && user.collections.some((c) => c.expectedDate === todayStr)
+    const todaysReferrals = allReferrals.filter((referral) => {
+      return referral.pantryId === coordinatorPantryId && referral.collections.some((c) => c.expectedDate === todayStr)
     })
-    setUsers(todaysUsers)
+    setReferrals(todaysReferrals)
 
     toast({
       title: "Collection marked",
@@ -76,18 +75,24 @@ export default function CoordinatorPage() {
     })
   }
 
+  const formatFamilySize = (referral: Referral) => {
+    return referral.familyComposition?.totalHousehold || 0
+  }
+
   // Filter and sort collections
   const filteredCollections = todayCollections
     .filter((item) => {
       if (!searchQuery) return true
-      const fullName = `${item.user.firstName} ${item.user.lastName}`.toLowerCase()
+      const fullName = `${item.referral.firstName} ${item.referral.lastName}`.toLowerCase()
       return fullName.includes(searchQuery.toLowerCase())
     })
     .sort((a, b) => {
       if (sortBy === "name") {
-        return `${a.user.firstName} ${a.user.lastName}`.localeCompare(`${b.user.firstName} ${b.user.lastName}`)
+        return `${a.referral.firstName} ${a.referral.lastName}`.localeCompare(
+          `${b.referral.firstName} ${b.referral.lastName}`,
+        )
       } else if (sortBy === "family") {
-        return b.user.familySize - a.user.familySize
+        return formatFamilySize(b.referral) - formatFamilySize(a.referral)
       } else {
         // Sort by time (collected items at bottom)
         if (a.collection?.status === "collected" && b.collection?.status !== "collected") return 1
@@ -96,13 +101,37 @@ export default function CoordinatorPage() {
       }
     })
 
+  const formatDate = (date: Date) => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]
+    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
+  }
+
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString)
+    return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold">Today's Collections</h1>
-          <p className="text-muted-foreground mt-1">{format(today, "EEEE, d MMMM yyyy")}</p>
+          <p className="text-muted-foreground mt-1">{formatDate(today)}</p>
           <p className="text-lg font-medium mt-2">{pantry?.name}</p>
         </div>
 
@@ -175,14 +204,14 @@ export default function CoordinatorPage() {
                   {searchQuery ? "No collections match your search" : "No collections scheduled for today"}
                 </div>
               ) : (
-                filteredCollections.map(({ user, collection }) => (
-                  <Card key={user.id} className="overflow-hidden">
+                filteredCollections.map(({ referral, collection }) => (
+                  <Card key={referral.id} className="overflow-hidden">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold truncate">
-                              {user.firstName} {user.lastName}
+                              {referral.firstName} {referral.lastName}
                             </h3>
                             {collection?.status === "collected" && (
                               <Badge variant="default" className="bg-green-600">
@@ -198,15 +227,17 @@ export default function CoordinatorPage() {
                             )}
                           </div>
                           <div className="flex gap-4 mt-1 text-sm text-muted-foreground">
-                            <span>Family size: {user.familySize}</span>
+                            <span className="font-medium">
+                              {calculateBoxesNeeded(formatFamilySize(referral))}{" "}
+                              {calculateBoxesNeeded(formatFamilySize(referral)) === 1 ? "box" : "boxes"}
+                            </span>
+                            <span>Family size: {formatFamilySize(referral)}</span>
                             <span>Week {collection?.weekNumber} of 8</span>
-                            {collection?.collectedAt && (
-                              <span>{format(new Date(collection.collectedAt), "h:mm a")}</span>
-                            )}
+                            {collection?.collectedAt && <span>{formatTime(collection.collectedAt)}</span>}
                           </div>
                         </div>
                         {collection?.status === "pending" && (
-                          <Button onClick={() => handleMarkCollected(user.id, collection.weekNumber)} size="sm">
+                          <Button onClick={() => handleMarkCollected(referral.id, collection.weekNumber)} size="sm">
                             Mark Collected
                           </Button>
                         )}

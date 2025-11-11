@@ -1,19 +1,40 @@
 // Type definitions for the Scottish Pantry Network
 
+export interface PlatformUser {
+  id: number
+  name: string
+  email: string
+  role: "fww" | "coordinator" | "admin"
+  organization: string
+  assignedContractIds?: number[] // For FWW users - changed from assignedContracts
+  assignedPantryIds?: number[] // For Coordinator users - changed from assignedPantries
+  totalReferrals?: number // For FWW users
+  activeReferrals?: number // For FWW users
+}
+
 export interface Contract {
   id: number
   name: string
   organization: string
   startDate: string
   endDate: string
-  cycleLength: number
-  frequency: string
-  collectionDay: string
-  eligiblePantries: number[]
+  cycleWeeks: number // renamed from cycleLength for clarity
+  frequency: string // e.g., "weekly"
   surveyUrl: string | null
+  eligiblePantryIds: number[] // added for many-to-many relationship
   active: boolean
-  totalUsers: number
-  activeUsers: number
+  totalReferrals: number
+  activeReferrals: number
+}
+
+export interface OperatingHours {
+  open: string // e.g., "09:00"
+  close: string // e.g., "17:00"
+}
+
+export interface ContractCollectionDay {
+  contractId: number
+  collectionDay: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
 }
 
 export interface Pantry {
@@ -21,21 +42,12 @@ export interface Pantry {
   name: string
   address: string
   region: string
-  collectionDay: string
-  collectionTime: string
+  operatingHours: {
+    [key in "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"]?: OperatingHours
+  }
+  contractCollectionDays: ContractCollectionDay[] // Which contracts this pantry serves and on what days
   coordinator: string
   active: boolean
-  weeklyCapacity: number
-}
-
-export interface FWW {
-  id: number
-  name: string
-  email: string
-  organization: string
-  assignedContracts: number[]
-  totalReferrals: number
-  activeReferrals: number
 }
 
 export interface FamilyComposition {
@@ -48,16 +60,27 @@ export interface FamilyComposition {
 
 export interface Collection {
   id: string
-  userId: string
+  referralId: string
   weekNumber: number
   expectedDate: string
   status: "pending" | "collected" | "no-show"
   collectedAt?: string
   pantryId: number
+  contractId: number
   notes?: string
 }
 
-export interface User {
+export interface ReferralCycle {
+  contractId: number
+  cycleStartDate: string
+  cycleEndDate: string
+  currentWeek: number
+  status: "active" | "completed" | "cancelled"
+  cancelledAt?: string
+  cancelReason?: string
+}
+
+export interface Referral {
   id: string
   firstName: string
   lastName: string
@@ -66,18 +89,16 @@ export interface User {
   familyComposition: FamilyComposition
   dietaryRequirements?: string
   address?: string
-  contractId: number
   pantryId: number
   fwwId: number
-  status: "active" | "completed"
-  cycleStartDate: string
-  cycleEndDate: string
-  currentWeek: number
+  cycles: ReferralCycle[] // Support multiple active contracts and re-referrals
   trackingUrl: string
   collectionsCompleted: number
   collections: Collection[]
   createdAt: string
   createdBy: string
+  updatedAt?: string
+  updatedBy?: string
 }
 
 export type Role = "end-user" | "fww" | "coordinator" | "admin"

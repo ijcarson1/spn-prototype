@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { initializeData, getCurrentRole, migrateUsersToFamilyComposition, clearAllData } from "@/lib/data-service"
+import { initializeData, getCurrentRole, clearAllData } from "@/lib/data-service"
 import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
@@ -12,7 +12,6 @@ export default function HomePage() {
   useEffect(() => {
     // Initialize data on first load
     initializeData()
-    migrateUsersToFamilyComposition()
 
     // Show debug panel briefly
     setShowDebug(true)

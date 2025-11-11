@@ -1,17 +1,16 @@
 // Data service for localStorage operations
-import type { Contract, Pantry, FWW, User, Collection, FamilyComposition } from "./types"
+import type { Contract, Pantry, PlatformUser, Referral, Collection, FamilyComposition, ReferralCycle } from "./types"
 
-const DATA_VERSION = "1.4" // Increment this to force data refresh with fixed date logic
+const DATA_VERSION = "2.1" // bumped version to force data refresh
 
 const STORAGE_KEYS = {
   contracts: "spn_contracts",
   pantries: "spn_pantries",
-  users: "spn_users",
-  fwws: "spn_fwws",
-  collections: "spn_collections",
+  referrals: "spn_referrals", // Renamed from users
+  platformUsers: "spn_platform_users", // Renamed from fwws
   currentRole: "spn_currentRole",
   initialized: "spn_initialized",
-  dataVersion: "spn_dataVersion", // Track data version
+  dataVersion: "spn_dataVersion",
 }
 
 // Initialize dummy data
@@ -22,10 +21,11 @@ export function initializeData() {
   const isInitialized = localStorage.getItem(STORAGE_KEYS.initialized)
 
   if (isInitialized && currentVersion === DATA_VERSION) {
-    return // Data is current, no need to reinitialize
+    return
   }
 
-  // Contracts
+  console.log("[v0] Initializing data with version", DATA_VERSION)
+
   const contracts: Contract[] = [
     {
       id: 1,
@@ -33,14 +33,13 @@ export function initializeData() {
       organization: "NHS Glasgow",
       startDate: "2025-10-01",
       endDate: "2026-03-31",
-      cycleLength: 8,
+      cycleWeeks: 8, // renamed from cycleLength
       frequency: "weekly",
-      collectionDay: "Tuesday",
-      eligiblePantries: [1, 2, 3],
       surveyUrl: "https://typeform.com/nhs-survey",
+      eligiblePantryIds: [1, 2, 3], // added eligible pantries
       active: true,
-      totalUsers: 45,
-      activeUsers: 38,
+      totalReferrals: 45,
+      activeReferrals: 38,
     },
     {
       id: 2,
@@ -48,14 +47,13 @@ export function initializeData() {
       organization: "Glasgow City Council",
       startDate: "2025-09-15",
       endDate: "2026-02-28",
-      cycleLength: 8,
+      cycleWeeks: 8,
       frequency: "weekly",
-      collectionDay: "Wednesday",
-      eligiblePantries: [2, 3, 4],
       surveyUrl: "https://surveymonkey.com/council-survey",
+      eligiblePantryIds: [2, 3, 4], // added eligible pantries
       active: true,
-      totalUsers: 22,
-      activeUsers: 19,
+      totalReferrals: 22,
+      activeReferrals: 19,
     },
     {
       id: 3,
@@ -63,84 +61,98 @@ export function initializeData() {
       organization: "NHS Lothian",
       startDate: "2025-11-01",
       endDate: "2026-04-30",
-      cycleLength: 8,
+      cycleWeeks: 8,
       frequency: "weekly",
-      collectionDay: "Thursday",
-      eligiblePantries: [5],
       surveyUrl: null,
+      eligiblePantryIds: [5], // added eligible pantries
       active: true,
-      totalUsers: 8,
-      activeUsers: 8,
+      totalReferrals: 8,
+      activeReferrals: 8,
     },
   ]
 
-  // Pantries
   const pantries: Pantry[] = [
     {
       id: 1,
       name: "Tollcross Community Pantry",
       address: "42 Tollcross Road, Glasgow, G32 8AF",
       region: "East Glasgow",
-      collectionDay: "Tuesday",
-      collectionTime: "10:00 AM - 4:00 PM",
+      operatingHours: {
+        tuesday: { open: "10:00", close: "16:00" },
+        thursday: { open: "10:00", close: "15:00" },
+      },
+      contractCollectionDays: [{ contractId: 1, collectionDay: "tuesday" }],
       coordinator: "Sarah McDonald",
       active: true,
-      weeklyCapacity: 50,
     },
     {
       id: 2,
       name: "Govan Community Hub",
       address: "15 Govan Road, Glasgow, G51 1JL",
       region: "South Glasgow",
-      collectionDay: "Tuesday, Wednesday",
-      collectionTime: "10:00 AM - 4:00 PM",
+      operatingHours: {
+        tuesday: { open: "10:00", close: "16:00" },
+        wednesday: { open: "10:00", close: "16:00" },
+      },
+      contractCollectionDays: [
+        { contractId: 1, collectionDay: "tuesday" },
+        { contractId: 2, collectionDay: "wednesday" },
+      ],
       coordinator: "James Wilson",
       active: true,
-      weeklyCapacity: 40,
     },
     {
       id: 3,
       name: "Maryhill Pantry",
       address: "88 Maryhill Road, Glasgow, G20 7QB",
       region: "North Glasgow",
-      collectionDay: "Tuesday, Wednesday",
-      collectionTime: "11:00 AM - 3:00 PM",
+      operatingHours: {
+        tuesday: { open: "11:00", close: "15:00" },
+        wednesday: { open: "11:00", close: "15:00" },
+      },
+      contractCollectionDays: [
+        { contractId: 1, collectionDay: "tuesday" },
+        { contractId: 2, collectionDay: "wednesday" },
+      ],
       coordinator: "Emma Thompson",
       active: true,
-      weeklyCapacity: 35,
     },
     {
       id: 4,
       name: "Drumchapel Food Hub",
       address: "120 Drumchapel Road, Glasgow, G15 6QE",
       region: "West Glasgow",
-      collectionDay: "Wednesday",
-      collectionTime: "10:00 AM - 4:00 PM",
+      operatingHours: {
+        wednesday: { open: "10:00", close: "16:00" },
+        friday: { open: "10:00", close: "14:00" },
+      },
+      contractCollectionDays: [{ contractId: 2, collectionDay: "wednesday" }],
       coordinator: "David Chen",
       active: true,
-      weeklyCapacity: 30,
     },
     {
       id: 5,
       name: "Edinburgh Gorgie Pantry",
       address: "55 Gorgie Road, Edinburgh, EH11 2LA",
       region: "Edinburgh West",
-      collectionDay: "Thursday",
-      collectionTime: "10:00 AM - 4:00 PM",
+      operatingHours: {
+        thursday: { open: "10:00", close: "16:00" },
+      },
+      contractCollectionDays: [{ contractId: 3, collectionDay: "thursday" }],
       coordinator: "Linda Brown",
       active: true,
-      weeklyCapacity: 25,
     },
   ]
 
-  // FWWs
-  const fwws: FWW[] = [
+  const platformUsers: PlatformUser[] = [
+    // FWWs
     {
       id: 1,
       name: "Jane Smith",
       email: "jane.smith@nhs.scot",
+      role: "fww",
       organization: "NHS Glasgow",
-      assignedContracts: [1],
+      assignedContractIds: [1], // renamed from assignedContracts
       totalReferrals: 45,
       activeReferrals: 38,
     },
@@ -148,8 +160,9 @@ export function initializeData() {
       id: 2,
       name: "Michael Brown",
       email: "michael.brown@glasgow.gov.uk",
+      role: "fww",
       organization: "Glasgow City Council",
-      assignedContracts: [2],
+      assignedContractIds: [2],
       totalReferrals: 22,
       activeReferrals: 19,
     },
@@ -157,25 +170,52 @@ export function initializeData() {
       id: 3,
       name: "Aisha Khan",
       email: "aisha.khan@nhs.scot",
+      role: "fww",
       organization: "NHS Lothian",
-      assignedContracts: [3],
+      assignedContractIds: [3],
       totalReferrals: 8,
       activeReferrals: 8,
     },
+    // Coordinators
+    {
+      id: 4,
+      name: "Sarah McDonald",
+      email: "sarah.mcdonald@tollcross.org",
+      role: "coordinator",
+      organization: "Tollcross Community Pantry",
+      assignedPantryIds: [1], // renamed from assignedPantries
+    },
+    {
+      id: 5,
+      name: "James Wilson",
+      email: "james.wilson@govan.org",
+      role: "coordinator",
+      organization: "Govan Community Hub",
+      assignedPantryIds: [2],
+    },
+    // Admins
+    {
+      id: 6,
+      name: "Admin User",
+      email: "admin@spn.scot",
+      role: "admin",
+      organization: "Scottish Pantry Network",
+    },
   ]
 
-  // Generate 25 users with varied states
-  const users: User[] = generateDummyUsers()
+  const referrals: Referral[] = generateDummyReferrals()
 
   localStorage.setItem(STORAGE_KEYS.contracts, JSON.stringify(contracts))
   localStorage.setItem(STORAGE_KEYS.pantries, JSON.stringify(pantries))
-  localStorage.setItem(STORAGE_KEYS.fwws, JSON.stringify(fwws))
-  localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users))
+  localStorage.setItem(STORAGE_KEYS.platformUsers, JSON.stringify(platformUsers))
+  localStorage.setItem(STORAGE_KEYS.referrals, JSON.stringify(referrals))
   localStorage.setItem(STORAGE_KEYS.initialized, "true")
   localStorage.setItem(STORAGE_KEYS.dataVersion, DATA_VERSION)
+
+  console.log("[v0] Data initialized successfully")
 }
 
-function generateDummyUsers(): User[] {
+function generateDummyReferrals(): Referral[] {
   const firstNames = [
     "Emma",
     "James",
@@ -222,118 +262,229 @@ function generateDummyUsers(): User[] {
   ]
 
   const familyCompositions: FamilyComposition[] = [
-    { adults: 1, childrenUnder5: 0, children6to12: 0, children13to18: 0, totalHousehold: 1 }, // Single adult
-    { adults: 1, childrenUnder5: 1, children6to12: 0, children13to18: 0, totalHousehold: 2 }, // Adult with toddler
-    { adults: 2, childrenUnder5: 0, children6to12: 1, children13to18: 1, totalHousehold: 4 }, // Family of 4
-    { adults: 2, childrenUnder5: 2, children6to12: 1, children13to18: 0, totalHousehold: 5 }, // Large family
-    { adults: 1, childrenUnder5: 0, children6to12: 2, children13to18: 1, totalHousehold: 4 }, // Single parent
-    { adults: 2, childrenUnder5: 0, children6to12: 0, children13to18: 0, totalHousehold: 2 }, // Couple
-    { adults: 1, childrenUnder5: 2, children6to12: 0, children13to18: 0, totalHousehold: 3 }, // Adult with 2 young kids
-    { adults: 2, childrenUnder5: 1, children6to12: 2, children13to18: 0, totalHousehold: 5 }, // Family of 5
+    { adults: 1, childrenUnder5: 0, children6to12: 0, children13to18: 0, totalHousehold: 1 },
+    { adults: 1, childrenUnder5: 1, children6to12: 0, children13to18: 0, totalHousehold: 2 },
+    { adults: 2, childrenUnder5: 0, children6to12: 1, children13to18: 1, totalHousehold: 4 },
+    { adults: 2, childrenUnder5: 2, children6to12: 1, children13to18: 0, totalHousehold: 5 },
+    { adults: 1, childrenUnder5: 0, children6to12: 2, children13to18: 1, totalHousehold: 4 },
+    { adults: 2, childrenUnder5: 0, children6to12: 0, children13to18: 0, totalHousehold: 2 },
+    { adults: 1, childrenUnder5: 2, children6to12: 0, children13to18: 0, totalHousehold: 3 },
+    { adults: 2, childrenUnder5: 1, children6to12: 2, children13to18: 0, totalHousehold: 5 },
   ]
 
-  const users: User[] = []
+  const referrals: Referral[] = []
   const today = new Date()
-  today.setHours(0, 0, 0, 0) // Reset time to start of day
+  today.setHours(0, 0, 0, 0)
 
-  console.log("[v0] Generating dummy users. Today is:", today.toDateString())
+  console.log("[v0] Generating dummy referrals. Today is:", today.toDateString())
 
-  // First 12 users assigned to Pantry #1 with more pending collections
-  for (let i = 0; i < 25; i++) {
-    let contractId: number
-    let pantryId: number
-    let collectionDay: string
-
-    // First 12 users assigned to Pantry #1 (Tollcross - Tuesday)
-    if (i < 12) {
-      contractId = 1 // NHS Glasgow (Tuesday collections)
-      pantryId = 1 // Tollcross
-      collectionDay = "Tuesday"
-    } else if (i < 18) {
-      contractId = 2 // Glasgow Council (Wednesday)
-      pantryId = [2, 3, 4][i % 3]
-      collectionDay = "Wednesday"
-    } else {
-      contractId = 3 // Edinburgh NHS (Thursday)
-      pantryId = 5
-      collectionDay = "Thursday"
-    }
-
-    const fwwId = contractId
-
-    let weeksAgo: number
-    if (i < 10) {
-      // These users are at week 1-6 of their cycle, with a collection due today
-      weeksAgo = i % 6
-    } else if (i < 15) {
-      weeksAgo = 3
-    } else if (i < 20) {
-      weeksAgo = 6
-    } else if (i < 23) {
-      weeksAgo = 8
-    } else {
-      weeksAgo = 10 // Completed users
-    }
-
-    const startDate = new Date(today)
-    startDate.setDate(startDate.getDate() - weeksAgo * 7)
-    const endDate = new Date(startDate)
-    endDate.setDate(endDate.getDate() + 8 * 7)
-
-    const currentWeek = Math.min(weeksAgo + 1, 8)
-    const isCompleted = weeksAgo >= 8
-
+  // Generate 30 referrals with varied states
+  for (let i = 0; i < 30; i++) {
     const trackingId = Math.random().toString(36).substring(2, 10)
-
     const familyComposition = familyCompositions[i % familyCompositions.length]
 
-    // Generate collections for each week
+    // Determine contract, pantry assignment
+    let contractId: number
+    let pantryId: number
+    let fwwId: number
+
+    if (i < 15) {
+      contractId = 1
+      pantryId = [1, 2, 3][i % 3]
+      fwwId = 1
+    } else if (i < 25) {
+      contractId = 2
+      pantryId = [2, 3, 4][i % 3]
+      fwwId = 2
+    } else {
+      contractId = 3
+      pantryId = 5
+      fwwId = 3
+    }
+
+    // Create referral cycles - some have single, some have multiple (including re-referrals)
+    const cycles: ReferralCycle[] = []
     const collections: Collection[] = []
-    for (let week = 1; week <= Math.min(currentWeek, 8); week++) {
-      const collectionDate = new Date(startDate)
-      collectionDate.setDate(collectionDate.getDate() + (week - 1) * 7)
-      collectionDate.setHours(0, 0, 0, 0)
 
-      const collectionDateStr = collectionDate.toDateString()
-      const todayStr = today.toDateString()
-      const isPast = collectionDate < today
-      const isToday = collectionDateStr === todayStr
+    if (i < 12) {
+      // Active referrals at Pantry #1 for coordinator testing
+      const weeksAgo = i % 6
+      const startDate = new Date(today)
+      startDate.setDate(startDate.getDate() - weeksAgo * 7)
+      const endDate = new Date(startDate)
+      endDate.setDate(endDate.getDate() + 8 * 7)
 
-      if (i < 12 && isToday) {
-        console.log(
-          `[v0] User ${i} (Pantry #1) has collection TODAY (${collectionDateStr}). Status will be: ${i < 6 ? "collected" : "pending"}`,
-        )
-      }
-
-      let status: "pending" | "collected" | "no-show"
-      if (isToday && i < 12) {
-        // For Pantry #1 users scheduled today: first 6 are collected, next 6 are pending
-        status = i < 6 ? "collected" : "pending"
-      } else if (isToday) {
-        // Other pantries: mix of statuses
-        status = i % 2 === 0 ? "collected" : "pending"
-      } else if (isPast) {
-        // Past collections: 70% attendance rate with some variation
-        const attendance = i < 5 ? 1.0 : i < 10 ? 0.85 : i < 15 ? 0.65 : 0.5
-        status = Math.random() < attendance ? "collected" : "no-show"
-      } else {
-        status = "pending"
-      }
-
-      collections.push({
-        id: `${trackingId}-w${week}`,
-        userId: trackingId,
-        weekNumber: week,
-        expectedDate: collectionDate.toISOString().split("T")[0],
-        status,
-        collectedAt: status === "collected" ? collectionDate.toISOString() : undefined,
-        pantryId,
+      cycles.push({
+        contractId,
+        cycleStartDate: startDate.toISOString().split("T")[0],
+        cycleEndDate: endDate.toISOString().split("T")[0],
+        currentWeek: weeksAgo + 1,
+        status: "active",
       })
+
+      // Generate collections for active cycle
+      for (let week = 1; week <= weeksAgo + 1; week++) {
+        const collectionDate = new Date(startDate)
+        collectionDate.setDate(collectionDate.getDate() + (week - 1) * 7)
+        const isToday = collectionDate.toDateString() === today.toDateString()
+        const isPast = collectionDate < today
+
+        let status: "pending" | "collected" | "no-show"
+        if (isToday) {
+          status = i < 6 ? "collected" : "pending"
+        } else if (isPast) {
+          status = Math.random() < 0.8 ? "collected" : "no-show"
+        } else {
+          status = "pending"
+        }
+
+        collections.push({
+          id: `${trackingId}-c${contractId}-w${week}`,
+          referralId: trackingId,
+          weekNumber: week,
+          expectedDate: collectionDate.toISOString().split("T")[0],
+          status,
+          collectedAt: status === "collected" ? collectionDate.toISOString() : undefined,
+          pantryId,
+          contractId,
+        })
+      }
+    } else if (i >= 12 && i < 15) {
+      // Cancelled referrals for FWW testing
+      const weeksAgo = 3
+      const startDate = new Date(today)
+      startDate.setDate(startDate.getDate() - weeksAgo * 7)
+      const endDate = new Date(startDate)
+      endDate.setDate(endDate.getDate() + 8 * 7)
+      const cancelDate = new Date(startDate)
+      cancelDate.setDate(cancelDate.getDate() + 2 * 7)
+
+      cycles.push({
+        contractId,
+        cycleStartDate: startDate.toISOString().split("T")[0],
+        cycleEndDate: endDate.toISOString().split("T")[0],
+        currentWeek: 3,
+        status: "cancelled",
+        cancelledAt: cancelDate.toISOString(),
+        cancelReason: "Circumstances improved",
+      })
+
+      // Generate collections up to cancellation
+      for (let week = 1; week <= 2; week++) {
+        const collectionDate = new Date(startDate)
+        collectionDate.setDate(collectionDate.getDate() + (week - 1) * 7)
+
+        collections.push({
+          id: `${trackingId}-c${contractId}-w${week}`,
+          referralId: trackingId,
+          weekNumber: week,
+          expectedDate: collectionDate.toISOString().split("T")[0],
+          status: "collected",
+          collectedAt: collectionDate.toISOString(),
+          pantryId,
+          contractId,
+        })
+      }
+    } else if (i >= 15 && i < 17) {
+      // Re-referred users (completed one cycle, now in second active cycle)
+      const firstCycleStart = new Date(today)
+      firstCycleStart.setDate(firstCycleStart.getDate() - 70) // 10 weeks ago
+      const firstCycleEnd = new Date(firstCycleStart)
+      firstCycleEnd.setDate(firstCycleEnd.getDate() + 8 * 7)
+
+      cycles.push({
+        contractId,
+        cycleStartDate: firstCycleStart.toISOString().split("T")[0],
+        cycleEndDate: firstCycleEnd.toISOString().split("T")[0],
+        currentWeek: 8,
+        status: "completed",
+      })
+
+      // Second active cycle
+      const secondCycleStart = new Date(today)
+      secondCycleStart.setDate(secondCycleStart.getDate() - 14) // 2 weeks ago
+      const secondCycleEnd = new Date(secondCycleStart)
+      secondCycleEnd.setDate(secondCycleEnd.getDate() + 8 * 7)
+
+      cycles.push({
+        contractId,
+        cycleStartDate: secondCycleStart.toISOString().split("T")[0],
+        cycleEndDate: secondCycleEnd.toISOString().split("T")[0],
+        currentWeek: 3,
+        status: "active",
+      })
+
+      // Generate collections for both cycles
+      for (let week = 1; week <= 8; week++) {
+        const collectionDate = new Date(firstCycleStart)
+        collectionDate.setDate(collectionDate.getDate() + (week - 1) * 7)
+
+        collections.push({
+          id: `${trackingId}-c${contractId}-cycle1-w${week}`,
+          referralId: trackingId,
+          weekNumber: week,
+          expectedDate: collectionDate.toISOString().split("T")[0],
+          status: "collected",
+          collectedAt: collectionDate.toISOString(),
+          pantryId,
+          contractId,
+        })
+      }
+
+      for (let week = 1; week <= 3; week++) {
+        const collectionDate = new Date(secondCycleStart)
+        collectionDate.setDate(collectionDate.getDate() + (week - 1) * 7)
+        const isPast = collectionDate < today
+
+        collections.push({
+          id: `${trackingId}-c${contractId}-cycle2-w${week}`,
+          referralId: trackingId,
+          weekNumber: week,
+          expectedDate: collectionDate.toISOString().split("T")[0],
+          status: isPast ? "collected" : "pending",
+          collectedAt: isPast ? collectionDate.toISOString() : undefined,
+          pantryId,
+          contractId,
+        })
+      }
+    } else {
+      // Regular active referrals
+      const weeksAgo = (i % 6) + 1
+      const startDate = new Date(today)
+      startDate.setDate(startDate.getDate() - weeksAgo * 7)
+      const endDate = new Date(startDate)
+      endDate.setDate(endDate.getDate() + 8 * 7)
+
+      cycles.push({
+        contractId,
+        cycleStartDate: startDate.toISOString().split("T")[0],
+        cycleEndDate: endDate.toISOString().split("T")[0],
+        currentWeek: weeksAgo + 1,
+        status: "active",
+      })
+
+      for (let week = 1; week <= weeksAgo + 1; week++) {
+        const collectionDate = new Date(startDate)
+        collectionDate.setDate(collectionDate.getDate() + (week - 1) * 7)
+        const isPast = collectionDate < today
+
+        collections.push({
+          id: `${trackingId}-c${contractId}-w${week}`,
+          referralId: trackingId,
+          weekNumber: week,
+          expectedDate: collectionDate.toISOString().split("T")[0],
+          status: isPast ? (Math.random() < 0.75 ? "collected" : "no-show") : "pending",
+          collectedAt: isPast && Math.random() < 0.75 ? collectionDate.toISOString() : undefined,
+          pantryId,
+          contractId,
+        })
+      }
     }
 
     const collectionsCompleted = collections.filter((c) => c.status === "collected").length
+    const creationDate = cycles[0] ? new Date(cycles[0].cycleStartDate) : new Date()
 
-    users.push({
+    referrals.push({
       id: trackingId,
       firstName: firstNames[i % firstNames.length],
       lastName: lastNames[i % lastNames.length],
@@ -343,31 +494,30 @@ function generateDummyUsers(): User[] {
           ? `${firstNames[i % firstNames.length].toLowerCase()}.${lastNames[i % lastNames.length].toLowerCase()}@email.com`
           : undefined,
       familyComposition,
-      dietaryRequirements: i % 4 === 0 ? "Vegetarian" : undefined,
+      dietaryRequirements: i % 4 === 0 ? "Vegetarian" : i % 5 === 0 ? "Gluten-free" : undefined,
       address: `${Math.floor(Math.random() * 100 + 1)} Sample Street, Glasgow`,
-      contractId,
       pantryId,
       fwwId,
-      status: isCompleted ? "completed" : "active",
-      cycleStartDate: startDate.toISOString().split("T")[0],
-      cycleEndDate: endDate.toISOString().split("T")[0],
-      currentWeek,
+      cycles,
       trackingUrl: `/track/${trackingId}`,
       collectionsCompleted,
       collections,
-      createdAt: startDate.toISOString(),
+      createdAt: creationDate.toISOString(),
       createdBy: fwwId === 1 ? "Jane Smith" : fwwId === 2 ? "Michael Brown" : "Aisha Khan",
     })
   }
 
-  console.log("[v0] Generated", users.length, "users")
-  const pantry1Users = users.filter((u) => u.pantryId === 1)
-  console.log("[v0] Pantry #1 has", pantry1Users.length, "users")
+  console.log("[v0] Generated", referrals.length, "referrals")
+  console.log("[v0] Pantry #1 has", referrals.filter((r) => r.pantryId === 1).length, "referrals")
+  console.log(
+    "[v0] Cancelled referrals:",
+    referrals.filter((r) => r.cycles.some((c) => c.status === "cancelled")).length,
+  )
+  console.log("[v0] Re-referred:", referrals.filter((r) => r.cycles.length > 1).length)
 
-  return users
+  return referrals
 }
 
-// Getter functions
 export function getContracts(): Contract[] {
   if (typeof window === "undefined") return []
   const data = localStorage.getItem(STORAGE_KEYS.contracts)
@@ -380,24 +530,28 @@ export function getPantries(): Pantry[] {
   return data ? JSON.parse(data) : []
 }
 
-export function getFWWs(): FWW[] {
+export function getPlatformUsers(): PlatformUser[] {
   if (typeof window === "undefined") return []
-  const data = localStorage.getItem(STORAGE_KEYS.fwws)
+  const data = localStorage.getItem(STORAGE_KEYS.platformUsers)
   return data ? JSON.parse(data) : []
 }
 
-export function getUsers(): User[] {
+export function getReferrals(): Referral[] {
   if (typeof window === "undefined") return []
-  const data = localStorage.getItem(STORAGE_KEYS.users)
+  const data = localStorage.getItem(STORAGE_KEYS.referrals)
   return data ? JSON.parse(data) : []
 }
 
-export function getUserByTrackingId(trackingId: string): User | undefined {
-  const users = getUsers()
-  return users.find((u) => u.id === trackingId)
+export function getReferralByTrackingId(trackingId: string): Referral | undefined {
+  const referrals = getReferrals()
+  return referrals.find((r) => r.id === trackingId)
 }
 
-// Setter functions
+export function getReferralById(id: string): Referral | undefined {
+  const referrals = getReferrals()
+  return referrals.find((r) => r.id === id)
+}
+
 export function saveContract(contract: Contract) {
   const contracts = getContracts()
   const index = contracts.findIndex((c) => c.id === contract.id)
@@ -420,32 +574,44 @@ export function savePantry(pantry: Pantry) {
   localStorage.setItem(STORAGE_KEYS.pantries, JSON.stringify(pantries))
 }
 
-export function saveUser(user: User) {
-  const users = getUsers()
+export function savePlatformUser(user: PlatformUser) {
+  const users = getPlatformUsers()
   const index = users.findIndex((u) => u.id === user.id)
   if (index >= 0) {
     users[index] = user
   } else {
     users.push(user)
   }
-  localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users))
+  localStorage.setItem(STORAGE_KEYS.platformUsers, JSON.stringify(users))
+}
+
+export function saveReferral(referral: Referral) {
+  const referrals = getReferrals()
+  const index = referrals.findIndex((r) => r.id === referral.id)
+  if (index >= 0) {
+    referrals[index] = referral
+  } else {
+    referrals.push(referral)
+  }
+  localStorage.setItem(STORAGE_KEYS.referrals, JSON.stringify(referrals))
 }
 
 export function updateCollection(
-  userId: string,
-  weekNumber: number,
+  referralId: string,
+  collectionId: string,
   status: "collected" | "no-show",
   collectedAt?: string,
 ) {
-  const users = getUsers()
-  const user = users.find((u) => u.id === userId)
-  if (user) {
-    const collection = user.collections.find((c) => c.weekNumber === weekNumber)
+  const referrals = getReferrals()
+  const referral = referrals.find((r) => r.id === referralId)
+  if (referral) {
+    const collection = referral.collections.find((c) => c.id === collectionId)
     if (collection) {
       collection.status = status
       collection.collectedAt = collectedAt
-      user.collectionsCompleted = user.collections.filter((c) => c.status === "collected").length
-      saveUser(user)
+      referral.collectionsCompleted = referral.collections.filter((c) => c.status === "collected").length
+      referral.updatedAt = new Date().toISOString()
+      saveReferral(referral)
     }
   }
 }
@@ -461,42 +627,21 @@ export function setCurrentRole(role: string) {
   localStorage.setItem(STORAGE_KEYS.currentRole, role)
 }
 
-// Migration function to update existing users with old data structure
-export function migrateUsersToFamilyComposition() {
-  if (typeof window === "undefined") return
-
-  const users = getUsers()
-  let needsUpdate = false
-
-  const updatedUsers = users.map((user) => {
-    // If user has old familySize property but no familyComposition, migrate it
-    if (!user.familyComposition && (user as any).familySize) {
-      needsUpdate = true
-      const familySize = (user as any).familySize
-      // Create a default family composition based on family size
-      return {
-        ...user,
-        familyComposition: {
-          adults: familySize >= 2 ? 2 : 1,
-          childrenUnder5: 0,
-          children6to12: Math.max(0, familySize - 2),
-          children13to18: 0,
-          totalHousehold: familySize,
-        },
-      }
-    }
-    return user
-  })
-
-  if (needsUpdate) {
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(updatedUsers))
-  }
-}
-
 export function clearAllData() {
   if (typeof window === "undefined") return
   Object.values(STORAGE_KEYS).forEach((key) => {
     localStorage.removeItem(key)
   })
   console.log("[v0] All localStorage data cleared")
+}
+
+// Backward compatibility - keep old function names as aliases
+export const getUsers = getReferrals
+export const getUserByTrackingId = getReferralByTrackingId
+export const saveUser = saveReferral
+export const getFWWs = getPlatformUsers
+
+export function calculateBoxesNeeded(totalHousehold: number): number {
+  // Each box serves 4 people
+  return Math.ceil(totalHousehold / 4)
 }

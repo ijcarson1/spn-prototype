@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -21,38 +20,67 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { getContracts, getPantries, getUsers, getFWWs, saveContract, savePantry } from "@/lib/data-service"
-import type { Contract, Pantry, User, FWW } from "@/lib/types"
-import { format } from "date-fns"
-import { Users, Building, FileText, TrendingUp, Plus, Search, Edit, Eye, BarChart3 } from "lucide-react"
+import {
+  getContracts,
+  getPantries,
+  getReferrals,
+  getPlatformUsers,
+  saveContract,
+  savePantry,
+  savePlatformUser,
+  saveReferral, // Added saveReferral import for creating new referrals
+  calculateBoxesNeeded,
+} from "@/lib/data-service"
+import type { Contract, Pantry, Referral, PlatformUser } from "@/lib/types"
+import { Users, Building, FileText, TrendingUp, Plus, Search, Edit, Eye } from "lucide-react"
+import { BarChart3 } from "lucide-react"
+import { useRouter } from "next/navigation"
+
+function formatDate(date: string | Date, formatStr = "MMM d, yyyy"): string {
+  const d = new Date(date)
+  const month = d.toLocaleDateString("en-US", { month: "short" })
+  const day = d.getDate()
+  const year = d.getFullYear()
+  return `${month} ${day}, ${year}`
+}
+
+function getReferralStatus(referral: Referral): "active" | "completed" | "cancelled" {
+  if (!referral.cycles || referral.cycles.length === 0) {
+    return "completed"
+  }
+
+  const latestCycle = referral.cycles[referral.cycles.length - 1]
+  return latestCycle.status
+}
 
 export default function AdminDashboard() {
   const [contracts, setContracts] = useState<Contract[]>([])
   const [pantries, setPantries] = useState<Pantry[]>([])
-  const [users, setUsers] = useState<User[]>([])
-  const [fwws, setFWWs] = useState<FWW[]>([])
+  const [referrals, setReferrals] = useState<Referral[]>([])
+  const [platformUsers, setPlatformUsers] = useState<PlatformUser[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const { toast } = useToast()
+  const router = useRouter()
 
   useEffect(() => {
     loadData()
   }, [])
 
   const loadData = () => {
-    setContracts(getContracts())
-    setPantries(getPantries())
-    setUsers(getUsers())
-    setFWWs(getFWWs())
+    const loadedContracts = getContracts()
+    const loadedPantries = getPantries()
+    const loadedReferrals = getReferrals()
+    const loadedPlatformUsers = getPlatformUsers()
+
+    setContracts(loadedContracts || [])
+    setPantries(loadedPantries || [])
+    setReferrals(loadedReferrals || [])
+    setPlatformUsers(loadedPlatformUsers || [])
   }
 
-  const activeUsers = users.filter((u) => u.status === "active").length
-  const overallAttendance =
-    users.length > 0
-      ? Math.round(
-          (users.reduce((sum, u) => sum + u.collectionsCompleted / Math.min(u.currentWeek, 8), 0) / users.length) * 100,
-        )
-      : 0
+  const activeReferrals = referrals.filter((r) => getReferralStatus(r) === "active").length
+  const fwws = platformUsers.filter((u) => u.role === "fww")
 
   return (
     <div className="container mx-auto p-4 space-y-6 max-w-7xl">
@@ -68,8 +96,8 @@ export default function AdminDashboard() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="contracts">Contracts</TabsTrigger>
           <TabsTrigger value="pantries">Pantries</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="fwws">FWWs</TabsTrigger>
+          <TabsTrigger value="referrals">Referrals</TabsTrigger>
+          <TabsTrigger value="users">Platform Users</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -78,13 +106,13 @@ export default function AdminDashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+                <CardTitle className="text-sm font-medium">Active Referrals</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeUsers}</div>
+                <div className="text-2xl font-bold">{activeReferrals}</div>
                 <p className="text-xs text-muted-foreground">
-                  {users.filter((u) => u.status === "completed").length} completed
+                  {referrals.filter((r) => getReferralStatus(r) === "completed").length} completed
                 </p>
               </CardContent>
             </Card>
@@ -113,12 +141,13 @@ export default function AdminDashboard() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">FWWs</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{overallAttendance}%</div>
-                <p className="text-xs text-muted-foreground">This week</p>
+                <div className="text-2xl font-bold">{fwws.length}</div>
+                {/* Updated text from "Active food workers" to "Family Wellbeing Workers" */}
+                <p className="text-xs text-muted-foreground">Family Wellbeing Workers</p>
               </CardContent>
             </Card>
           </div>
@@ -129,13 +158,13 @@ export default function AdminDashboard() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <ContractDialog onSave={loadData}>
+                <ContractDialog onSave={loadData} contracts={contracts} pantries={pantries}>
                   <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Plus className="mr-2 h-4 w-4" />
                     Create New Contract
                   </Button>
                 </ContractDialog>
-                <PantryDialog onSave={loadData}>
+                <PantryDialog onSave={loadData} contracts={contracts}>
                   <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Plus className="mr-2 h-4 w-4" />
                     Create New Pantry
@@ -146,24 +175,27 @@ export default function AdminDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
+                <CardTitle>Recent Referrals</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {users
+                  {referrals
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                     .slice(0, 5)
-                    .map((user) => (
-                      <div key={user.id} className="flex items-center text-sm">
-                        <div className="flex-1">
-                          <p className="font-medium">
-                            {user.firstName} {user.lastName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">Referred by {user.createdBy}</p>
+                    .map((referral) => {
+                      const fww = platformUsers.find((u) => u.id === referral.fwwId)
+                      return (
+                        <div key={referral.id} className="flex items-center text-sm">
+                          <div className="flex-1">
+                            <p className="font-medium">
+                              {referral.firstName} {referral.lastName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Referred by {fww?.name || "Unknown"}</p>
+                          </div>
+                          <Badge variant="outline">{formatDate(referral.createdAt)}</Badge>
                         </div>
-                        <Badge variant="outline">{format(new Date(user.createdAt), "MMM d")}</Badge>
-                      </div>
-                    ))}
+                      )
+                    })}
                 </div>
               </CardContent>
             </Card>
@@ -181,7 +213,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <ContractDialog onSave={loadData}>
+            <ContractDialog onSave={loadData} contracts={contracts} pantries={pantries}>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Contract
@@ -196,7 +228,7 @@ export default function AdminDashboard() {
                   <TableHead>Contract Name</TableHead>
                   <TableHead>Organization</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Active Users</TableHead>
+                  <TableHead>Pantries</TableHead>
                   <TableHead>Dates</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -217,13 +249,12 @@ export default function AdminDashboard() {
                           {contract.active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{contract.activeUsers}</TableCell>
+                      <TableCell>{contract.eligiblePantryIds?.length || 0} pantries</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(contract.startDate), "MMM d, yyyy")} -{" "}
-                        {format(new Date(contract.endDate), "MMM d, yyyy")}
+                        {formatDate(contract.startDate)} - {formatDate(contract.endDate)}
                       </TableCell>
                       <TableCell>
-                        <ContractDialog contract={contract} onSave={loadData}>
+                        <ContractDialog contract={contract} onSave={loadData} contracts={contracts} pantries={pantries}>
                           <Button variant="ghost" size="sm">
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -247,7 +278,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <PantryDialog onSave={loadData}>
+            <PantryDialog onSave={loadData} contracts={contracts}>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Pantry
@@ -261,9 +292,8 @@ export default function AdminDashboard() {
                 <TableRow>
                   <TableHead>Pantry Name</TableHead>
                   <TableHead>Region</TableHead>
-                  <TableHead>Collection Days</TableHead>
                   <TableHead>Coordinator</TableHead>
-                  <TableHead>Capacity</TableHead>
+                  <TableHead>Contracts</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -279,16 +309,15 @@ export default function AdminDashboard() {
                     <TableRow key={pantry.id}>
                       <TableCell className="font-medium">{pantry.name}</TableCell>
                       <TableCell>{pantry.region}</TableCell>
-                      <TableCell>{pantry.collectionDay}</TableCell>
                       <TableCell>{pantry.coordinator}</TableCell>
-                      <TableCell>{pantry.weeklyCapacity}</TableCell>
+                      <TableCell>{Object.keys(pantry.contractCollectionDays || {}).length} contracts</TableCell>
                       <TableCell>
                         <Badge variant={pantry.active ? "default" : "secondary"}>
                           {pantry.active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <PantryDialog pantry={pantry} onSave={loadData}>
+                        <PantryDialog pantry={pantry} onSave={loadData} contracts={contracts}>
                           <Button variant="ghost" size="sm">
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -301,23 +330,39 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        {/* Users Tab */}
-        <TabsContent value="users" className="space-y-4">
+        {/* Referrals Tab */}
+        <TabsContent value="referrals" className="space-y-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 flex-1 max-w-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Input
+                placeholder="Search referrals..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
+                <SelectItem value="all">All Referrals</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <CreateReferralDialog
+              onSave={loadData}
+              contracts={contracts}
+              pantries={pantries}
+              platformUsers={platformUsers}
+            >
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Referral
+              </Button>
+            </CreateReferralDialog>
           </div>
 
           <Card>
@@ -327,46 +372,55 @@ export default function AdminDashboard() {
                   <TableHead>Name</TableHead>
                   <TableHead>Contract</TableHead>
                   <TableHead>Pantry</TableHead>
+                  <TableHead>Boxes</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Collections</TableHead>
-                  <TableHead>Current Week</TableHead>
                   <TableHead>FWW</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users
-                  .filter((u) => {
+                {referrals
+                  .filter((r) => {
                     const matchesSearch =
-                      u.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      u.lastName.toLowerCase().includes(searchTerm.toLowerCase())
-                    const matchesStatus = filterStatus === "all" || u.status === filterStatus
+                      r.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      r.lastName.toLowerCase().includes(searchTerm.toLowerCase())
+                    const matchesStatus = filterStatus === "all" || getReferralStatus(r) === filterStatus
                     return matchesSearch && matchesStatus
                   })
-                  .map((user) => {
-                    const contract = contracts.find((c) => c.id === user.contractId)
-                    const pantry = pantries.find((p) => p.id === user.pantryId)
+                  .map((referral) => {
+                    const currentCycle =
+                      referral.cycles && referral.cycles.length > 0 ? referral.cycles[referral.cycles.length - 1] : null
+                    const contract = currentCycle ? contracts.find((c) => c.id === currentCycle.contractId) : null
+                    const pantry = pantries.find((p) => p.id === referral.pantryId)
+                    const fww = platformUsers.find((u) => u.id === referral.fwwId)
+                    const status = getReferralStatus(referral)
+                    const boxesNeeded = calculateBoxesNeeded(referral.familyComposition?.totalHousehold || 0)
+
                     return (
-                      <TableRow key={user.id}>
+                      <TableRow key={referral.id}>
                         <TableCell className="font-medium">
-                          {user.firstName} {user.lastName}
+                          {referral.firstName} {referral.lastName}
                         </TableCell>
-                        <TableCell className="text-sm">{contract?.name}</TableCell>
-                        <TableCell className="text-sm">{pantry?.name}</TableCell>
+                        <TableCell className="text-sm">{contract?.name || "N/A"}</TableCell>
+                        <TableCell className="text-sm">{pantry?.name || "N/A"}</TableCell>
                         <TableCell>
-                          <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
+                          <span className="font-semibold">{boxesNeeded}</span>
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({referral.familyComposition?.totalHousehold || 0} people)
+                          </span>
                         </TableCell>
                         <TableCell>
-                          {user.collectionsCompleted}/{Math.min(user.currentWeek, 8)}
+                          <Badge variant={status === "active" ? "default" : "secondary"}>{status}</Badge>
                         </TableCell>
-                        <TableCell>Week {user.currentWeek}</TableCell>
-                        <TableCell className="text-sm">{user.createdBy}</TableCell>
+                        <TableCell className="text-sm">{fww?.name || "N/A"}</TableCell>
                         <TableCell>
-                          <UserDetailDialog user={user} contract={contract} pantry={pantry}>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </UserDetailDialog>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/fww/referrals/${referral.id}`)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     )
@@ -376,34 +430,63 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        {/* FWWs Tab */}
-        <TabsContent value="fwws" className="space-y-4">
+        {/* Platform Users Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Platform Users (FWW, Admins, Coordinators)</h3>
+            <PlatformUserDialog onSave={loadData} contracts={contracts} pantries={pantries}>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Platform User
+              </Button>
+            </PlatformUserDialog>
+          </div>
+
           <Card>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Organization</TableHead>
-                  <TableHead>Assigned Contracts</TableHead>
-                  <TableHead>Total Referrals</TableHead>
-                  <TableHead>Active Referrals</TableHead>
+                  <TableHead>Assignments</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fwws.map((fww) => (
-                  <TableRow key={fww.id}>
-                    <TableCell className="font-medium">{fww.name}</TableCell>
-                    <TableCell>{fww.email}</TableCell>
-                    <TableCell>{fww.organization}</TableCell>
+                {platformUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      {fww.assignedContracts
-                        .map((id) => contracts.find((c) => c.id === id)?.name)
-                        .filter(Boolean)
-                        .join(", ")}
+                      <Badge>{user.role.toUpperCase()}</Badge>
                     </TableCell>
-                    <TableCell>{fww.totalReferrals}</TableCell>
-                    <TableCell>{fww.activeReferrals}</TableCell>
+                    <TableCell>{user.organization || "N/A"}</TableCell>
+                    <TableCell className="text-sm">
+                      {user.role === "fww" &&
+                        user.assignedContractIds &&
+                        user.assignedContractIds.length > 0 &&
+                        user.assignedContractIds
+                          .map((id) => contracts.find((c) => c.id === id)?.name)
+                          .filter(Boolean)
+                          .join(", ")}
+                      {user.role === "coordinator" &&
+                        user.assignedPantryIds &&
+                        user.assignedPantryIds.length > 0 &&
+                        user.assignedPantryIds
+                          .map((id) => pantries.find((p) => p.id === id)?.name)
+                          .filter(Boolean)
+                          .join(", ")}
+                      {user.role === "admin" && "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      <PlatformUserDialog user={user} onSave={loadData} contracts={contracts} pantries={pantries}>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </PlatformUserDialog>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -411,24 +494,31 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        {/* Reports Tab */}
         <TabsContent value="reports" className="space-y-4">
-          <ReportsSection users={users} contracts={contracts} pantries={pantries} fwws={fwws} />
+          <ReportsSection
+            users={referrals}
+            contracts={contracts}
+            pantries={pantries}
+            fwws={platformUsers.filter((u) => u.role === "fww")}
+          />
         </TabsContent>
       </Tabs>
     </div>
   )
 }
 
-// Contract Dialog Component
 function ContractDialog({
   contract,
   onSave,
   children,
+  contracts,
+  pantries,
 }: {
   contract?: Contract
   onSave: () => void
   children: React.ReactNode
+  contracts: Contract[]
+  pantries: Pantry[]
 }) {
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
@@ -440,12 +530,9 @@ function ContractDialog({
       endDate: "",
       cycleLength: 8,
       frequency: "weekly",
-      collectionDay: "",
-      eligiblePantries: [],
+      eligiblePantryIds: [],
       surveyUrl: "",
       active: true,
-      totalUsers: 0,
-      activeUsers: 0,
     },
   )
 
@@ -461,7 +548,7 @@ function ContractDialog({
 
     const newContract: Contract = {
       ...formData,
-      id: contract?.id || Date.now(),
+      id: contract?.id || `contract_${Date.now()}`,
     } as Contract
 
     saveContract(newContract)
@@ -521,24 +608,6 @@ function ContractDialog({
             </div>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="collectionDay">Collection Day</Label>
-            <Select
-              value={formData.collectionDay}
-              onValueChange={(value) => setFormData({ ...formData, collectionDay: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select day" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Monday">Monday</SelectItem>
-                <SelectItem value="Tuesday">Tuesday</SelectItem>
-                <SelectItem value="Wednesday">Wednesday</SelectItem>
-                <SelectItem value="Thursday">Thursday</SelectItem>
-                <SelectItem value="Friday">Friday</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
             <Label htmlFor="surveyUrl">Survey URL (Optional)</Label>
             <Input
               id="surveyUrl"
@@ -546,6 +615,58 @@ function ContractDialog({
               onChange={(e) => setFormData({ ...formData, surveyUrl: e.target.value })}
               placeholder="https://..."
             />
+          </div>
+          {/* Fixed Contract dialog to show cycleWeeks */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="cycleLength">Cycle Length (Weeks) *</Label>
+              <Input
+                id="cycleLength"
+                type="number"
+                min="1"
+                value={formData.cycleLength}
+                onChange={(e) => setFormData({ ...formData, cycleLength: Number.parseInt(e.target.value, 10) })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="frequency">Frequency *</Label>
+              <Select
+                value={formData.frequency}
+                onValueChange={(value) => setFormData({ ...formData, frequency: value as "weekly" | "bi-weekly" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select frequency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Eligible Pantries</Label>
+            <p className="text-sm text-muted-foreground">Select which pantries can use this contract</p>
+            <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
+              {pantries.map((pantry) => (
+                <label key={pantry.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.eligiblePantryIds?.includes(pantry.id) || false}
+                    onChange={(e) => {
+                      const current = formData.eligiblePantryIds || []
+                      setFormData({
+                        ...formData,
+                        eligiblePantryIds: e.target.checked
+                          ? [...current, pantry.id]
+                          : current.filter((id) => id !== pantry.id),
+                      })
+                    }}
+                  />
+                  <span className="text-sm">{pantry.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -559,15 +680,16 @@ function ContractDialog({
   )
 }
 
-// Pantry Dialog Component
 function PantryDialog({
   pantry,
   onSave,
   children,
+  contracts,
 }: {
   pantry?: Pantry
   onSave: () => void
   children: React.ReactNode
+  contracts: Contract[]
 }) {
   const [open, setOpen] = useState(false)
   const { toast } = useToast()
@@ -576,11 +698,10 @@ function PantryDialog({
       name: "",
       address: "",
       region: "",
-      collectionDay: "",
-      collectionTime: "",
       coordinator: "",
+      operatingHours: {},
+      contractCollectionDays: {},
       active: true,
-      weeklyCapacity: 30,
     },
   )
 
@@ -596,7 +717,7 @@ function PantryDialog({
 
     const newPantry: Pantry = {
       ...formData,
-      id: pantry?.id || Date.now(),
+      id: pantry?.id || `pantry_${Date.now()}`,
     } as Pantry
 
     savePantry(newPantry)
@@ -633,35 +754,15 @@ function PantryDialog({
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="region">Region *</Label>
-            <Input
-              id="region"
-              value={formData.region}
-              onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-            />
-          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="collectionDay">Collection Days</Label>
+              <Label htmlFor="region">Region *</Label>
               <Input
-                id="collectionDay"
-                value={formData.collectionDay}
-                onChange={(e) => setFormData({ ...formData, collectionDay: e.target.value })}
-                placeholder="e.g. Tuesday, Wednesday"
+                id="region"
+                value={formData.region}
+                onChange={(e) => setFormData({ ...formData, region: e.target.value })}
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="collectionTime">Collection Time</Label>
-              <Input
-                id="collectionTime"
-                value={formData.collectionTime}
-                onChange={(e) => setFormData({ ...formData, collectionTime: e.target.value })}
-                placeholder="e.g. 10:00 AM - 4:00 PM"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="coordinator">Coordinator Name</Label>
               <Input
@@ -670,15 +771,11 @@ function PantryDialog({
                 onChange={(e) => setFormData({ ...formData, coordinator: e.target.value })}
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="capacity">Weekly Capacity</Label>
-              <Input
-                id="capacity"
-                type="number"
-                value={formData.weeklyCapacity}
-                onChange={(e) => setFormData({ ...formData, weeklyCapacity: Number.parseInt(e.target.value) })}
-              />
-            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Operating Hours (per day)</Label>
+            <p className="text-sm text-muted-foreground">Define when the pantry is open</p>
+            <div className="text-sm text-muted-foreground">Simplified for prototype - full implementation pending</div>
           </div>
         </div>
         <DialogFooter>
@@ -699,7 +796,7 @@ function UserDetailDialog({
   pantry,
   children,
 }: {
-  user: User
+  user: any
   contract?: Contract
   pantry?: Pantry
   children: React.ReactNode
@@ -730,7 +827,8 @@ function UserDetailDialog({
                   </p>
                 )}
                 <p>
-                  <span className="text-muted-foreground">Family Size:</span> {user.familySize}
+                  <span className="text-muted-foreground">Family Size:</span>{" "}
+                  {user.familyComposition?.totalHousehold || "N/A"}
                 </p>
                 {user.dietaryRequirements && (
                   <p>
@@ -758,14 +856,15 @@ function UserDetailDialog({
                   <span className="text-muted-foreground">Status:</span>{" "}
                   <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
                 </p>
-                <p>
-                  <span className="text-muted-foreground">Cycle:</span>{" "}
-                  {format(new Date(user.cycleStartDate), "MMM d, yyyy")} -{" "}
-                  {format(new Date(user.cycleEndDate), "MMM d, yyyy")}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Current Week:</span> Week {user.currentWeek} of 8
-                </p>
+                {user.cycles && user.cycles.length > 0 && (
+                  <>
+                    <p>
+                      <span className="text-muted-foreground">Cycle:</span>{" "}
+                      {formatDate(user.cycles[user.cycles.length - 1].startDate)} -{" "}
+                      {formatDate(user.cycles[user.cycles.length - 1].endDate)}
+                    </p>
+                  </>
+                )}
                 <p>
                   <span className="text-muted-foreground">Referred by:</span> {user.createdBy}
                 </p>
@@ -775,7 +874,7 @@ function UserDetailDialog({
             <div>
               <h3 className="font-semibold mb-2">Tracking URL</h3>
               <code className="text-sm bg-muted p-2 rounded block">
-                {window.location.origin}
+                {typeof window !== "undefined" ? window.location.origin : ""}
                 {user.trackingUrl}
               </code>
             </div>
@@ -792,25 +891,33 @@ function UserDetailDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {user.collections.map((collection) => (
-                  <TableRow key={collection.id}>
-                    <TableCell>Week {collection.weekNumber}</TableCell>
-                    <TableCell>{format(new Date(collection.expectedDate), "MMM d, yyyy")}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          collection.status === "collected"
-                            ? "default"
-                            : collection.status === "no-show"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                      >
-                        {collection.status}
-                      </Badge>
+                {user.collections && user.collections.length > 0 ? (
+                  user.collections.map((collection: any) => (
+                    <TableRow key={collection.id}>
+                      <TableCell>Week {collection.weekNumber}</TableCell>
+                      <TableCell>{formatDate(collection.expectedDate)}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            collection.status === "collected"
+                              ? "default"
+                              : collection.status === "no-show"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                        >
+                          {collection.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                      No collection history available
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
@@ -827,10 +934,10 @@ function ReportsSection({
   pantries,
   fwws,
 }: {
-  users: User[]
+  users: Referral[]
   contracts: Contract[]
   pantries: Pantry[]
-  fwws: FWW[]
+  fwws: PlatformUser[]
 }) {
   const [reportType, setReportType] = useState<"collections" | "referrals" | "uptake">("collections")
   const { toast } = useToast()
@@ -845,12 +952,15 @@ function ReportsSection({
   // Calculate collections report data
   const collectionsData = pantries.map((pantry) => {
     const pantryUsers = users.filter((u) => u.pantryId === pantry.id)
-    const totalCollections = pantryUsers.reduce((sum, u) => sum + u.collections.length, 0)
+    const totalCollections = pantryUsers.reduce((sum, u) => sum + (u.collections?.length || 0), 0)
     const collected = pantryUsers.reduce(
-      (sum, u) => sum + u.collections.filter((c) => c.status === "collected").length,
+      (sum, u) => sum + (u.collections?.filter((c) => c.status === "collected")?.length || 0),
       0,
     )
-    const noShows = pantryUsers.reduce((sum, u) => sum + u.collections.filter((c) => c.status === "no-show").length, 0)
+    const noShows = pantryUsers.reduce(
+      (sum, u) => sum + (u.collections?.filter((c) => c.status === "no-show")?.length || 0),
+      0,
+    )
     const attendance = totalCollections > 0 ? Math.round((collected / totalCollections) * 100) : 0
 
     return {
@@ -863,14 +973,17 @@ function ReportsSection({
   })
 
   const contractCollections = contracts.map((contract) => {
-    const contractUsers = users.filter((u) => u.contractId === contract.id)
-    const totalCollections = contractUsers.reduce((sum, u) => sum + u.collections.length, 0)
+    const contractUsers = users.filter((u) => {
+      const currentCycle = u.cycles && u.cycles.length > 0 ? u.cycles[u.cycles.length - 1] : null
+      return currentCycle?.contractId === contract.id
+    })
+    const totalCollections = contractUsers.reduce((sum, u) => sum + (u.collections?.length || 0), 0)
     const collected = contractUsers.reduce(
-      (sum, u) => sum + u.collections.filter((c) => c.status === "collected").length,
+      (sum, u) => sum + (u.collections?.filter((c) => c.status === "collected")?.length || 0),
       0,
     )
     const noShows = contractUsers.reduce(
-      (sum, u) => sum + u.collections.filter((c) => c.status === "no-show").length,
+      (sum, u) => sum + (u.collections?.filter((c) => c.status === "no-show")?.length || 0),
       0,
     )
     const attendance = totalCollections > 0 ? Math.round((collected / totalCollections) * 100) : 0
@@ -887,30 +1000,32 @@ function ReportsSection({
   // Calculate referrals report data
   const referralsData = fwws.map((fww) => {
     const fwwUsers = users.filter((u) => u.fwwId === fww.id)
+    const mostRecentTimestamp =
+      fwwUsers.length > 0 ? Math.max(...fwwUsers.map((u) => new Date(u.createdAt).getTime())) : 0
     return {
       fww: fww.name,
       referrals: fwwUsers.length,
-      contracts: [...new Set(fwwUsers.map((u) => u.contractId))].length,
-      mostRecent:
-        fwwUsers.length > 0
-          ? format(new Date(Math.max(...fwwUsers.map((u) => new Date(u.createdAt).getTime()))), "MMM d, yyyy")
-          : "N/A",
+      contracts: [...new Set(fwwUsers.map((u) => u.cycles?.[0]?.contractId).filter(Boolean))].length,
+      mostRecent: mostRecentTimestamp > 0 ? formatDate(new Date(mostRecentTimestamp)) : "N/A",
     }
   })
 
   // Calculate uptake report data
   const uptakeData = contracts.map((contract) => {
-    const contractUsers = users.filter((u) => u.contractId === contract.id)
-    const totalCollections = contractUsers.reduce((sum, u) => sum + u.collections.length, 0)
+    const contractUsers = users.filter((u) => {
+      const currentCycle = u.cycles && u.cycles.length > 0 ? u.cycles[u.cycles.length - 1] : null
+      return currentCycle?.contractId === contract.id
+    })
+    const totalCollections = contractUsers.reduce((sum, u) => sum + (u.collections?.length || 0), 0)
     const collected = contractUsers.reduce(
-      (sum, u) => sum + u.collections.filter((c) => c.status === "collected").length,
+      (sum, u) => sum + (u.collections?.filter((c) => c.status === "collected")?.length || 0),
       0,
     )
     const attendance = totalCollections > 0 ? Math.round((collected / totalCollections) * 100) : 0
 
     return {
       contract: contract.name,
-      activeUsers: contractUsers.filter((u) => u.status === "active").length,
+      activeUsers: contractUsers.filter((u) => getReferralStatus(u) === "active").length,
       attendance,
     }
   })
@@ -1105,8 +1220,11 @@ function ReportsSection({
                 <CardContent>
                   <div className="text-2xl font-bold">
                     {
-                      users.filter((u) => u.collectionsCompleted === Math.min(u.currentWeek, 8) && u.currentWeek > 0)
-                        .length
+                      users.filter((u) => {
+                        const currentCycle = u.cycles && u.cycles.length > 0 ? u.cycles[u.cycles.length - 1] : null
+                        const currentWeek = currentCycle?.currentWeek || 0
+                        return u.collectionsCompleted === Math.min(currentWeek, 8) && currentWeek > 0
+                      }).length
                     }
                   </div>
                 </CardContent>
@@ -1118,9 +1236,11 @@ function ReportsSection({
                 <CardContent>
                   <div className="text-2xl font-bold">
                     {
-                      users.filter(
-                        (u) => u.currentWeek > 0 && u.collectionsCompleted / Math.min(u.currentWeek, 8) < 0.5,
-                      ).length
+                      users.filter((u) => {
+                        const currentCycle = u.cycles && u.cycles.length > 0 ? u.cycles[u.cycles.length - 1] : null
+                        const currentWeek = currentCycle?.currentWeek || 0
+                        return currentWeek > 0 && u.collectionsCompleted / Math.min(currentWeek, 8) < 0.5
+                      }).length
                     }
                   </div>
                 </CardContent>
@@ -1156,5 +1276,462 @@ function ReportsSection({
         </Tabs>
       </div>
     </div>
+  )
+}
+
+// Platform User Dialog Component
+function PlatformUserDialog({
+  user,
+  onSave,
+  children,
+  contracts,
+  pantries,
+}: {
+  user?: PlatformUser
+  onSave: () => void
+  children: React.ReactNode
+  contracts: Contract[]
+  pantries: Pantry[]
+}) {
+  const [open, setOpen] = useState(false)
+  const { toast } = useToast()
+  const [formData, setFormData] = useState<Partial<PlatformUser>>(
+    user || {
+      name: "",
+      email: "",
+      role: "fww",
+      organization: "",
+      assignedContractIds: [],
+      assignedPantryIds: [],
+    },
+  )
+
+  const handleSave = () => {
+    if (!formData.name || !formData.email || !formData.role) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields (Name, Email, Role)",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const newUser: PlatformUser = {
+      ...formData,
+      id: user?.id || `user_${Date.now()}`,
+    } as PlatformUser
+
+    savePlatformUser(newUser)
+    toast({
+      title: "Success",
+      description: `Platform user ${user ? "updated" : "created"} successfully`,
+    })
+    setOpen(false)
+    onSave()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{user ? "Edit Platform User" : "Create New Platform User"}</DialogTitle>
+          <DialogDescription>{user ? "Update user details" : "Add a new platform user"}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="userName">Name *</Label>
+              <Input
+                id="userName"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="userEmail">Email *</Label>
+              <Input
+                id="userEmail"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="userRole">Role *</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as any })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Updated "Food Worker" to "Family Wellbeing Worker" */}
+                  <SelectItem value="fww">Family Wellbeing Worker (FWW)</SelectItem>
+                  <SelectItem value="coordinator">Coordinator</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="userOrganization">Organization</Label>
+              <Input
+                id="userOrganization"
+                value={formData.organization}
+                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {formData.role === "fww" && (
+            <div className="grid gap-2">
+              <Label>Assigned Contracts</Label>
+              <p className="text-sm text-muted-foreground">Select contracts this FWW can refer users to.</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
+                {contracts.map((contract) => (
+                  <label key={contract.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.assignedContractIds?.includes(contract.id) || false}
+                      onChange={(e) => {
+                        const current = formData.assignedContractIds || []
+                        setFormData({
+                          ...formData,
+                          assignedContractIds: e.target.checked
+                            ? [...current, contract.id]
+                            : current.filter((id) => id !== contract.id),
+                        })
+                      }}
+                    />
+                    <span className="text-sm">{contract.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {formData.role === "coordinator" && (
+            <div className="grid gap-2">
+              <Label>Assigned Pantries</Label>
+              <p className="text-sm text-muted-foreground">Select pantries this coordinator manages.</p>
+              <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
+                {pantries.map((pantry) => (
+                  <label key={pantry.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.assignedPantryIds?.includes(pantry.id) || false}
+                      onChange={(e) => {
+                        const current = formData.assignedPantryIds || []
+                        setFormData({
+                          ...formData,
+                          assignedPantryIds: e.target.checked
+                            ? [...current, pantry.id]
+                            : current.filter((id) => id !== pantry.id),
+                        })
+                      }}
+                    />
+                    <span className="text-sm">{pantry.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>{user ? "Update" : "Create"} Platform User</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function CreateReferralDialog({
+  onSave,
+  children,
+  contracts,
+  pantries,
+  platformUsers,
+}: {
+  onSave: () => void
+  children: React.ReactNode
+  contracts: Contract[]
+  pantries: Pantry[]
+  platformUsers: PlatformUser[]
+}) {
+  const [open, setOpen] = useState(false)
+  const { toast } = useToast()
+  const router = useRouter()
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    adults: 1,
+    childrenUnder5: 0,
+    children6to12: 0,
+    children13to18: 0,
+    dietaryRequirements: "",
+    contractId: "",
+    pantryId: "",
+    fwwId: "", // Optional assignment to FWW
+  })
+
+  const totalHousehold = formData.adults + formData.childrenUnder5 + formData.children6to12 + formData.children13to18
+
+  const selectedContract = contracts.find((c) => c.id.toString() === formData.contractId)
+  const eligiblePantries = selectedContract
+    ? pantries.filter((p) => selectedContract.eligiblePantryIds?.includes(p.id))
+    : []
+
+  const fwws = platformUsers.filter((u) => u.role === "fww")
+
+  const handleSubmit = () => {
+    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.contractId || !formData.pantryId) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const referralId = `ref_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+    const newReferral: Referral = {
+      id: referralId,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone,
+      email: formData.email || undefined,
+      familyComposition: {
+        adults: formData.adults,
+        childrenUnder5: formData.childrenUnder5,
+        children6to12: formData.children6to12,
+        children13to18: formData.children13to18,
+        totalHousehold,
+      },
+      dietaryRequirements: formData.dietaryRequirements || undefined,
+      pantryId: Number.parseInt(formData.pantryId, 10),
+      fwwId: formData.fwwId ? Number.parseInt(formData.fwwId, 10) : 1, // Default to first FWW if not assigned
+      cycles: [
+        {
+          contractId: Number.parseInt(formData.contractId, 10),
+          cycleStartDate: new Date().toISOString(),
+          cycleEndDate: new Date(
+            Date.now() + (selectedContract?.cycleWeeks || 8) * 7 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+          currentWeek: 1,
+          status: "active",
+        },
+      ],
+      trackingUrl: `/track/${referralId}`,
+      collectionsCompleted: 0,
+      collections: [],
+      createdAt: new Date().toISOString(),
+      createdBy: "Admin",
+    }
+
+    saveReferral(newReferral)
+
+    toast({
+      title: "Success",
+      description: "Referral created successfully",
+    })
+
+    setOpen(false)
+    onSave()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create New Referral</DialogTitle>
+          <DialogDescription>Add a new referral to the system</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="firstName">First Name *</Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="lastName">Last Name *</Label>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone *</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email (Optional)</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Family Composition *</Label>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="grid gap-1">
+                <Label htmlFor="adults" className="text-xs">
+                  Adults
+                </Label>
+                <Input
+                  id="adults"
+                  type="number"
+                  min="1"
+                  value={formData.adults}
+                  onChange={(e) => setFormData({ ...formData, adults: Number.parseInt(e.target.value, 10) || 1 })}
+                />
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="childrenUnder5" className="text-xs">
+                  Under 5
+                </Label>
+                <Input
+                  id="childrenUnder5"
+                  type="number"
+                  min="0"
+                  value={formData.childrenUnder5}
+                  onChange={(e) =>
+                    setFormData({ ...formData, childrenUnder5: Number.parseInt(e.target.value, 10) || 0 })
+                  }
+                />
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="children6to12" className="text-xs">
+                  6-12 years
+                </Label>
+                <Input
+                  id="children6to12"
+                  type="number"
+                  min="0"
+                  value={formData.children6to12}
+                  onChange={(e) =>
+                    setFormData({ ...formData, children6to12: Number.parseInt(e.target.value, 10) || 0 })
+                  }
+                />
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="children13to18" className="text-xs">
+                  13-18 years
+                </Label>
+                <Input
+                  id="children13to18"
+                  type="number"
+                  min="0"
+                  value={formData.children13to18}
+                  onChange={(e) =>
+                    setFormData({ ...formData, children13to18: Number.parseInt(e.target.value, 10) || 0 })
+                  }
+                />
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">Total household: {totalHousehold} people</p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="dietaryRequirements">Dietary Requirements (Optional)</Label>
+            <Input
+              id="dietaryRequirements"
+              value={formData.dietaryRequirements}
+              onChange={(e) => setFormData({ ...formData, dietaryRequirements: e.target.value })}
+              placeholder="e.g., Vegetarian, Vegan, Halal, Gluten-free"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="contractId">Contract *</Label>
+            <Select
+              value={formData.contractId}
+              onValueChange={(value) => setFormData({ ...formData, contractId: value, pantryId: "" })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select contract" />
+              </SelectTrigger>
+              <SelectContent>
+                {contracts
+                  .filter((c) => c.active)
+                  .map((contract) => (
+                    <SelectItem key={contract.id} value={contract.id.toString()}>
+                      {contract.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {formData.contractId && (
+            <div className="grid gap-2">
+              <Label htmlFor="pantryId">Pantry *</Label>
+              <Select
+                value={formData.pantryId}
+                onValueChange={(value) => setFormData({ ...formData, pantryId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pantry" />
+                </SelectTrigger>
+                <SelectContent>
+                  {eligiblePantries.map((pantry) => (
+                    <SelectItem key={pantry.id} value={pantry.id.toString()}>
+                      {pantry.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="grid gap-2">
+            <Label htmlFor="fwwId">Assign to FWW (Optional)</Label>
+            <Select value={formData.fwwId} onValueChange={(value) => setFormData({ ...formData, fwwId: value })}>
+              <SelectTrigger>
+                <SelectValue placeholder="No assignment (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {fwws.map((fww) => (
+                  <SelectItem key={fww.id} value={fww.id.toString()}>
+                    {fww.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Assign this referral to a Family Wellbeing Worker for ongoing management
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit}>Create Referral</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
