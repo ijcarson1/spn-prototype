@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { initializeData, getCurrentRole } from "@/lib/data-service"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function HomePage() {
   const router = useRouter()
@@ -25,9 +26,12 @@ export default function HomePage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">Scottish Pantry Network</h1>
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="text-center space-y-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Scottish Pantry Network</h1>
+        <div className="flex items-center justify-center gap-2">
+          <Spinner className="h-5 w-5" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
     </div>
   )

@@ -32,13 +32,13 @@ export function RoleSwitcher() {
 
   return (
     <Select value={role} onValueChange={handleRoleChange}>
-      <SelectTrigger className="w-[200px]">
+      <SelectTrigger className="w-[140px] md:w-[200px]">
         <SelectValue placeholder="Select role" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="end-user">End User (Tracking)</SelectItem>
+        <SelectItem value="end-user">End User</SelectItem>
         <SelectItem value="fww">FWW</SelectItem>
-        <SelectItem value="coordinator">Pantry Coordinator</SelectItem>
+        <SelectItem value="coordinator">Coordinator</SelectItem>
         <SelectItem value="admin">Admin</SelectItem>
       </SelectContent>
     </Select>
