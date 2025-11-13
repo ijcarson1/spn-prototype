@@ -6,22 +6,32 @@ export interface PlatformUser {
   email: string
   role: "fww" | "coordinator" | "admin"
   organization: string
-  assignedContractIds?: number[] // For FWW users - changed from assignedContracts
-  assignedPantryIds?: number[] // For Coordinator users - changed from assignedPantries
+  assignedContractIds?: number[] // For FWW users - auto-assigned all contracts by default
+  assignedPantryIds?: number[] // For Coordinator users
   totalReferrals?: number // For FWW users
   activeReferrals?: number // For FWW users
 }
 
+// export interface Organization {
+//   id: number
+//   name: string
+//   type: "nhs" | "council" | "charity" | "other"
+//   region: string
+//   contactName?: string
+//   contactEmail?: string
+//   active: boolean
+// }
+
 export interface Contract {
   id: number
   name: string
-  organization: string
+  organization: string // Kept as string field directly on contract, removed organizationId
   startDate: string
   endDate: string
-  cycleWeeks: number // renamed from cycleLength for clarity
+  cycleWeeks: number
   frequency: string // e.g., "weekly"
   surveyUrl: string | null
-  eligiblePantryIds: number[] // added for many-to-many relationship
+  eligiblePantryIds: number[]
   active: boolean
   totalReferrals: number
   activeReferrals: number
@@ -65,9 +75,12 @@ export interface Collection {
   expectedDate: string
   status: "pending" | "collected" | "no-show"
   collectedAt?: string
+  collectedBy?: string // added to track who marked it collected
+  proxyName?: string // added to support proxy collection
   pantryId: number
   contractId: number
   notes?: string
+  manualEntry?: boolean // added to flag manually added collections
 }
 
 export interface ReferralCycle {
@@ -95,6 +108,8 @@ export interface Referral {
   trackingUrl: string
   collectionsCompleted: number
   collections: Collection[]
+  accessibilityFlag?: boolean // added for delivery assessment
+  fwwNotes?: string // added for FWW internal notes
   createdAt: string
   createdBy: string
   updatedAt?: string

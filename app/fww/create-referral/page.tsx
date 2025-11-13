@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, ArrowRight, Check } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function CreateReferralPage() {
   const [step, setStep] = useState(1)
@@ -29,6 +30,7 @@ export default function CreateReferralPage() {
     contractId: "",
     pantryId: "",
     startDate: "",
+    accessibilityFlag: false,
   })
 
   const router = useRouter()
@@ -132,20 +134,21 @@ export default function CreateReferralPage() {
       familyComposition,
       dietaryRequirements: formData.dietaryRequirements || undefined,
       address: formData.address || undefined,
+      accessibilityFlag: formData.accessibilityFlag,
       pantryId: Number(formData.pantryId),
       fwwId: 1, // Default to Jane Smith
       cycles: [
         {
           contractId: Number(formData.contractId),
-          cycleStartDate: startDate.toISOString().split("T")[0], // fixed property names
+          cycleStartDate: startDate.toISOString().split("T")[0],
           cycleEndDate: endDate.toISOString().split("T")[0],
           currentWeek: 1,
           status: "active",
         },
       ],
       trackingUrl: `/track/${trackingId}`,
-      collectionsCompleted: 0, // added missing property
-      collections: [], // added empty collections array
+      collectionsCompleted: 0,
+      collections: [],
       createdAt: new Date().toISOString(),
       createdBy: "Jane Smith",
     }
@@ -312,6 +315,25 @@ export default function CreateReferralPage() {
                   onChange={(e) => handleInputChange("address", e.target.value)}
                   placeholder="Enter address"
                 />
+              </div>
+
+              <div className="flex items-start gap-2 border rounded-lg p-3 bg-muted/50">
+                <Checkbox
+                  id="accessibilityFlag"
+                  checked={formData.accessibilityFlag}
+                  onCheckedChange={(checked) => handleInputChange("accessibilityFlag", checked ? "true" : "false")}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="accessibilityFlag"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Accessibility needs (Internal use only)
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    Flag this referral if they may require delivery or have accessibility considerations
+                  </p>
+                </div>
               </div>
 
               <Button onClick={handleNext} className="w-full">

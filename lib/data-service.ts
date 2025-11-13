@@ -1,13 +1,13 @@
 // Data service for localStorage operations
 import type { Contract, Pantry, PlatformUser, Referral, Collection, FamilyComposition, ReferralCycle } from "./types"
 
-const DATA_VERSION = "2.1" // bumped version to force data refresh
+const DATA_VERSION = "2.4" // Bumped version to remove Organization concept
 
 const STORAGE_KEYS = {
   contracts: "spn_contracts",
   pantries: "spn_pantries",
-  referrals: "spn_referrals", // Renamed from users
-  platformUsers: "spn_platform_users", // Renamed from fwws
+  referrals: "spn_referrals",
+  platformUsers: "spn_platform_users",
   currentRole: "spn_currentRole",
   initialized: "spn_initialized",
   dataVersion: "spn_dataVersion",
@@ -30,13 +30,13 @@ export function initializeData() {
     {
       id: 1,
       name: "NHS Glasgow Individual Referral Program Q4 2025",
-      organization: "NHS Glasgow",
+      organization: "NHS Glasgow", // Direct string, no organizationId
       startDate: "2025-10-01",
       endDate: "2026-03-31",
-      cycleWeeks: 8, // renamed from cycleLength
+      cycleWeeks: 8,
       frequency: "weekly",
       surveyUrl: "https://typeform.com/nhs-survey",
-      eligiblePantryIds: [1, 2, 3], // added eligible pantries
+      eligiblePantryIds: [1, 2, 3],
       active: true,
       totalReferrals: 45,
       activeReferrals: 38,
@@ -44,13 +44,13 @@ export function initializeData() {
     {
       id: 2,
       name: "Glasgow Council Family Support",
-      organization: "Glasgow City Council",
+      organization: "Glasgow City Council", // Direct string, no organizationId
       startDate: "2025-09-15",
       endDate: "2026-02-28",
       cycleWeeks: 8,
       frequency: "weekly",
       surveyUrl: "https://surveymonkey.com/council-survey",
-      eligiblePantryIds: [2, 3, 4], // added eligible pantries
+      eligiblePantryIds: [2, 3, 4],
       active: true,
       totalReferrals: 22,
       activeReferrals: 19,
@@ -58,13 +58,13 @@ export function initializeData() {
     {
       id: 3,
       name: "Edinburgh NHS Pilot",
-      organization: "NHS Lothian",
+      organization: "NHS Lothian", // Direct string, no organizationId
       startDate: "2025-11-01",
       endDate: "2026-04-30",
       cycleWeeks: 8,
       frequency: "weekly",
       surveyUrl: null,
-      eligiblePantryIds: [5], // added eligible pantries
+      eligiblePantryIds: [5],
       active: true,
       totalReferrals: 8,
       activeReferrals: 8,
@@ -152,7 +152,7 @@ export function initializeData() {
       email: "jane.smith@nhs.scot",
       role: "fww",
       organization: "NHS Glasgow",
-      assignedContractIds: [1], // renamed from assignedContracts
+      assignedContractIds: [1, 2, 3], // Default to all contracts
       totalReferrals: 45,
       activeReferrals: 38,
     },
@@ -162,7 +162,7 @@ export function initializeData() {
       email: "michael.brown@glasgow.gov.uk",
       role: "fww",
       organization: "Glasgow City Council",
-      assignedContractIds: [2],
+      assignedContractIds: [1, 2, 3], // Default to all contracts
       totalReferrals: 22,
       activeReferrals: 19,
     },
@@ -172,7 +172,7 @@ export function initializeData() {
       email: "aisha.khan@nhs.scot",
       role: "fww",
       organization: "NHS Lothian",
-      assignedContractIds: [3],
+      assignedContractIds: [1, 2, 3], // Default to all contracts
       totalReferrals: 8,
       activeReferrals: 8,
     },
@@ -183,7 +183,7 @@ export function initializeData() {
       email: "sarah.mcdonald@tollcross.org",
       role: "coordinator",
       organization: "Tollcross Community Pantry",
-      assignedPantryIds: [1], // renamed from assignedPantries
+      assignedPantryIds: [1],
     },
     {
       id: 5,
@@ -330,10 +330,22 @@ function generateDummyReferrals(): Referral[] {
         const isPast = collectionDate < today
 
         let status: "pending" | "collected" | "no-show"
+        let proxyName: string | undefined
+        let notes: string | undefined
+
         if (isToday) {
           status = i < 6 ? "collected" : "pending"
+          if (status === "collected" && i % 3 === 0) {
+            proxyName = `${firstNames[(i + 5) % firstNames.length]} ${lastNames[(i + 3) % lastNames.length]}`
+          }
         } else if (isPast) {
           status = Math.random() < 0.8 ? "collected" : "no-show"
+          if (status === "collected" && Math.random() < 0.2) {
+            proxyName = `${firstNames[(i + 5) % firstNames.length]} ${lastNames[(i + 3) % lastNames.length]}`
+          }
+          if (status === "no-show") {
+            notes = "Did not attend scheduled collection"
+          }
         } else {
           status = "pending"
         }
@@ -347,6 +359,8 @@ function generateDummyReferrals(): Referral[] {
           collectedAt: status === "collected" ? collectionDate.toISOString() : undefined,
           pantryId,
           contractId,
+          proxyName,
+          notes,
         })
       }
     } else if (i >= 12 && i < 15) {
@@ -442,7 +456,7 @@ function generateDummyReferrals(): Referral[] {
           weekNumber: week,
           expectedDate: collectionDate.toISOString().split("T")[0],
           status: isPast ? "collected" : "pending",
-          collectedAt: isPast ? collectionDate.toISOString() : undefined,
+          collectedAt: isPast && Math.random() < 0.75 ? collectionDate.toISOString() : undefined,
           pantryId,
           contractId,
         })
@@ -504,6 +518,11 @@ function generateDummyReferrals(): Referral[] {
       collections,
       createdAt: creationDate.toISOString(),
       createdBy: fwwId === 1 ? "Jane Smith" : fwwId === 2 ? "Michael Brown" : "Aisha Khan",
+      accessibilityFlag: i % 5 === 0 ? true : false, // 20% have accessibility needs
+      fwwNotes:
+        i % 3 === 0
+          ? `Initial assessment completed. ${i % 2 === 0 ? "Family is settling in well." : "May need additional support."}`
+          : undefined,
     })
   }
 
@@ -514,6 +533,8 @@ function generateDummyReferrals(): Referral[] {
     referrals.filter((r) => r.cycles.some((c) => c.status === "cancelled")).length,
   )
   console.log("[v0] Re-referred:", referrals.filter((r) => r.cycles.length > 1).length)
+  console.log("[v0] With accessibility flag:", referrals.filter((r) => r.accessibilityFlag).length)
+  console.log("[v0] With FWW notes:", referrals.filter((r) => r.fwwNotes).length)
 
   return referrals
 }

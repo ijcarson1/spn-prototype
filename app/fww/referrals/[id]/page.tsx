@@ -1,6 +1,8 @@
 "use client"
 
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
@@ -51,6 +53,8 @@ export default function ReferralDetailPage() {
     children13to18: 0,
     dietaryRequirements: "",
     pantryId: 0,
+    fwwNotes: "",
+    accessibilityFlag: false,
   })
 
   useEffect(() => {
@@ -72,6 +76,8 @@ export default function ReferralDetailPage() {
         children13to18: referralData.familyComposition.children13to18,
         dietaryRequirements: referralData.dietaryRequirements || "",
         pantryId: referralData.pantryId,
+        fwwNotes: referralData.fwwNotes || "",
+        accessibilityFlag: referralData.accessibilityFlag || false,
       })
     }
   }, [params.id])
@@ -183,6 +189,8 @@ export default function ReferralDetailPage() {
       },
       dietaryRequirements: editFormData.dietaryRequirements || undefined,
       pantryId: editFormData.pantryId,
+      fwwNotes: editFormData.fwwNotes || undefined,
+      accessibilityFlag: editFormData.accessibilityFlag,
       updatedAt: new Date().toISOString(),
     }
 
@@ -260,6 +268,11 @@ export default function ReferralDetailPage() {
                 <Badge variant={status === "active" ? "default" : status === "cancelled" ? "destructive" : "secondary"}>
                   {status.charAt(0).toUpperCase() + status.slice(1)}
                 </Badge>
+                {referral.accessibilityFlag && (
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                    Accessibility Flag
+                  </Badge>
+                )}
                 <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="icon">
@@ -428,6 +441,33 @@ export default function ReferralDetailPage() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div className="flex items-center space-x-2 py-2">
+                        <Checkbox
+                          id="edit-accessibility"
+                          checked={editFormData.accessibilityFlag}
+                          onCheckedChange={(checked) =>
+                            setEditFormData({ ...editFormData, accessibilityFlag: checked as boolean })
+                          }
+                        />
+                        <Label htmlFor="edit-accessibility" className="text-sm font-normal cursor-pointer">
+                          Accessibility flag (for possible delivery assessment - internal use only)
+                        </Label>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-notes">Family Wellbeing Worker Notes (Internal)</Label>
+                        <Textarea
+                          id="edit-notes"
+                          value={editFormData.fwwNotes}
+                          onChange={(e) => setEditFormData({ ...editFormData, fwwNotes: e.target.value })}
+                          placeholder="Add any internal notes about this referral..."
+                          rows={4}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          These notes are only visible to Family Wellbeing Workers and Admins
+                        </p>
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
@@ -476,9 +516,18 @@ export default function ReferralDetailPage() {
               </div>
             )}
 
+            {referral.fwwNotes && (
+              <div className="border-t pt-4">
+                <p className="text-sm text-muted-foreground mb-2">FWW Notes (Internal Only)</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-sm text-amber-900 whitespace-pre-wrap">{referral.fwwNotes}</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 pt-4 border-t">
               {status === "active" && (
-                <Dialog open={cancelDialogOpen} onValueChange={setCancelDialogOpen}>
+                <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="destructive" onClick={() => setCancelDialogOpen(true)}>
                       <XCircle className="mr-2 h-4 w-4" />
@@ -504,7 +553,7 @@ export default function ReferralDetailPage() {
                 </Dialog>
               )}
 
-              <Dialog open={reReferDialogOpen} onValueChange={setReReferDialogOpen}>
+              <Dialog open={reReferDialogOpen} onOpenChange={setReReferDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="default" onClick={() => setReReferDialogOpen(true)}>
                     <RefreshCcw className="mr-2 h-4 w-4" />

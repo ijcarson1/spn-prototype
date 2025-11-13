@@ -1,46 +1,51 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getReferrals, getPantries, updateCollection, calculateBoxesNeeded } from "@/lib/data-service"
+import { getReferrals, getPantries, calculateBoxesNeeded, saveReferral } from "@/lib/data-service"
 import type { Referral, Pantry } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { Search, CheckCircle, Clock } from "lucide-react"
+import { Search, CheckCircle, Clock, Plus, Minus } from "lucide-react"
+import { Label } from "@/components/ui/label"
 
 export default function CoordinatorPage() {
   const [referrals, setReferrals] = useState<Referral[]>([])
   const [pantry, setPantry] = useState<Pantry | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "family" | "time">("name")
+  const [showManualEntry, setShowManualEntry] = useState(false)
+  const [manualEntryForm, setManualEntryForm] = useState({
+    referralId: "",
+    proxyName: "",
+    collectionDate: new Date().toISOString().split("T")[0],
+    notes: "",
+  })
   const { toast } = useToast()
+  const [proxyName, setProxyName] = useState("")
 
   // For demo purposes, we'll use the first pantry coordinator (Tollcross)
   const coordinatorPantryId = 1
   const today = new Date()
 
   useEffect(() => {
-    console.log("[v0] Coordinator page loading. Today is:", today.toDateString())
     const allReferrals = getReferrals()
-    console.log("[v0] Total referrals loaded:", allReferrals.length)
     const pantries = getPantries()
     const myPantry = pantries.find((p) => p.id === coordinatorPantryId)
 
     // Filter referrals who have collections today at this pantry
     const todayStr = today.toISOString().split("T")[0]
-    console.log("[v0] Looking for collections on:", todayStr)
     const todaysReferrals = allReferrals.filter((referral) => {
       const hasCollection =
         referral.pantryId === coordinatorPantryId &&
         referral.collections.some((c) => {
-          console.log("[v0] Checking referral", referral.firstName, "collection date:", c.expectedDate, "vs", todayStr)
           return c.expectedDate === todayStr
         })
       return hasCollection
     })
-    console.log("[v0] Found referrals with collections today:", todaysReferrals.length)
 
     setPantry(myPantry || null)
     setReferrals(todaysReferrals)
@@ -57,21 +62,39 @@ export default function CoordinatorPage() {
   const collected = todayCollections.filter((item) => item.collection?.status === "collected").length
   const pending = todayCollections.filter((item) => item.collection?.status === "pending").length
 
-  const handleMarkCollected = (referralId: string, weekNumber: number) => {
+  const handleMarkCollected = (referralId: string, collectionId: string, useProxy = false) => {
     const now = new Date().toISOString()
-    updateCollection(referralId, weekNumber, "collected", now)
+    const proxy = useProxy ? proxyName : undefined
 
-    // Refresh the data
+    const referrals = getReferrals()
+    const referral = referrals.find((r) => r.id === referralId)
+    if (referral) {
+      const collection = referral.collections.find((c) => c.id === collectionId)
+      if (collection) {
+        collection.status = "collected"
+        collection.collectedAt = now
+        collection.collectedBy = "Pantry Coordinator"
+        if (proxy) {
+          collection.proxyName = proxy
+        }
+        referral.collectionsCompleted++
+        referral.updatedAt = now
+        saveReferral(referral)
+      }
+    }
+
+    // Refresh data
     const allReferrals = getReferrals()
     const todayStr = today.toISOString().split("T")[0]
     const todaysReferrals = allReferrals.filter((referral) => {
       return referral.pantryId === coordinatorPantryId && referral.collections.some((c) => c.expectedDate === todayStr)
     })
     setReferrals(todaysReferrals)
+    setProxyName("")
 
     toast({
       title: "Collection marked",
-      description: "Successfully marked as collected",
+      description: proxy ? `Collected by proxy: ${proxy}` : "Successfully marked as collected",
     })
   }
 
@@ -125,72 +148,152 @@ export default function CoordinatorPage() {
     return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
   }
 
+  const handleManualEntry = () => {
+    const allReferrals = getReferrals()
+    const referral = allReferrals.find((r) => r.id.toLowerCase() === manualEntryForm.referralId.toLowerCase())
+
+    if (!referral) {
+      toast({
+        title: "Referral Not Found",
+        description: "Please check the referral ID and try again.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (referral.pantryId !== coordinatorPantryId) {
+      toast({
+        title: "Wrong Pantry",
+        description: "This referral is assigned to a different pantry.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Find current active cycle
+    const activeCycle = referral.cycles.find((c) => c.status === "active")
+    if (!activeCycle) {
+      toast({
+        title: "No Active Cycle",
+        description: "This referral does not have an active cycle.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Create manual collection entry
+    const newCollection = {
+      id: `${referral.id}-manual-${Date.now()}`,
+      referralId: referral.id,
+      weekNumber: referral.collections.length + 1,
+      expectedDate: manualEntryForm.collectionDate,
+      status: "collected" as const,
+      collectedAt: new Date().toISOString(),
+      collectedBy: "Pantry Coordinator (Manual Entry)",
+      proxyName: manualEntryForm.proxyName || undefined,
+      pantryId: coordinatorPantryId,
+      contractId: activeCycle.contractId,
+      notes: manualEntryForm.notes || undefined,
+      manualEntry: true,
+    }
+
+    referral.collections.push(newCollection)
+    referral.collectionsCompleted++
+    saveReferral(referral)
+
+    // Reset form and refresh data
+    setManualEntryForm({
+      referralId: "",
+      proxyName: "",
+      collectionDate: new Date().toISOString().split("T")[0],
+      notes: "",
+    })
+    setShowManualEntry(false)
+
+    const todayStr = today.toISOString().split("T")[0]
+    const todaysReferrals = getReferrals().filter((r) => {
+      return r.pantryId === coordinatorPantryId && r.collections.some((c) => c.expectedDate === todayStr)
+    })
+    setReferrals(todaysReferrals)
+
+    toast({
+      title: "Collection Added",
+      description: `Manual collection entry added for ${referral.firstName} ${referral.lastName}`,
+    })
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="space-y-6">
+    <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
+      <div className="space-y-4 md:space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Today's Collections</h1>
-          <p className="text-muted-foreground mt-1">{formatDate(today)}</p>
-          <p className="text-lg font-medium mt-2">{pantry?.name}</p>
+        <div className="space-y-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-balance leading-tight">Today's Collections</h1>
+          <p className="text-sm md:text-base text-muted-foreground">{formatDate(today)}</p>
+          <p className="text-base md:text-lg font-medium">{pantry?.name}</p>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Expected Today</CardTitle>
+        <div className="grid gap-3 md:gap-4 grid-cols-3">
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Expected</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{todayCollections.length}</div>
-              <p className="text-xs text-muted-foreground">collections scheduled</p>
+              <div className="text-xl md:text-2xl font-bold">{todayCollections.length}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">scheduled</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Collected</CardTitle>
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Collected</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{collected}</div>
-              <p className="text-xs text-muted-foreground">marked as collected</p>
+              <div className="text-xl md:text-2xl font-bold text-green-700">{collected}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">completed</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2 md:pb-3">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Pending</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-600">{pending}</div>
-              <p className="text-xs text-muted-foreground">awaiting collection</p>
+              <div className="text-xl md:text-2xl font-bold text-amber-700">{pending}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">awaiting</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Search and Sort */}
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Collections</CardTitle>
-            <CardDescription>Search and mark collections as completed</CardDescription>
+            <CardTitle className="text-lg md:text-xl">Collections</CardTitle>
+            <CardDescription className="text-sm leading-relaxed">Mark collections as completed</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 h-11"
                 />
               </div>
               <div className="flex gap-2">
-                <Button variant={sortBy === "name" ? "default" : "outline"} onClick={() => setSortBy("name")} size="sm">
+                <Button
+                  variant={sortBy === "name" ? "default" : "outline"}
+                  onClick={() => setSortBy("name")}
+                  size="sm"
+                  className="flex-1"
+                >
                   Name
                 </Button>
                 <Button
                   variant={sortBy === "family" ? "default" : "outline"}
                   onClick={() => setSortBy("family")}
                   size="sm"
+                  className="flex-1"
                 >
                   Family Size
                 </Button>
@@ -200,46 +303,63 @@ export default function CoordinatorPage() {
             {/* Collections List */}
             <div className="space-y-3">
               {filteredCollections.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-12 text-muted-foreground text-sm">
                   {searchQuery ? "No collections match your search" : "No collections scheduled for today"}
                 </div>
               ) : (
                 filteredCollections.map(({ referral, collection }) => (
-                  <Card key={referral.id} className="overflow-hidden">
+                  <Card key={referral.id} className="overflow-hidden shadow-sm">
                     <CardContent className="p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold truncate">
-                              {referral.firstName} {referral.lastName}
-                            </h3>
-                            {collection?.status === "collected" && (
-                              <Badge variant="default" className="bg-green-600">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Collected
-                              </Badge>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-base leading-tight">
+                                {referral.firstName} {referral.lastName}
+                              </h3>
+                              {collection?.status === "collected" && (
+                                <Badge variant="default" className="bg-green-700 text-white shrink-0">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Collected
+                                </Badge>
+                              )}
+                              {collection?.status === "pending" && (
+                                <Badge variant="secondary" className="shrink-0">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  Pending
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs md:text-sm text-muted-foreground">
+                              <span className="font-medium">
+                                {calculateBoxesNeeded(formatFamilySize(referral))}{" "}
+                                {calculateBoxesNeeded(formatFamilySize(referral)) === 1 ? "box" : "boxes"}
+                              </span>
+                              <span>{formatFamilySize(referral)} people</span>
+                              <span>Week {collection?.weekNumber}/8</span>
+                              {collection?.collectedAt && <span>{formatTime(collection.collectedAt)}</span>}
+                            </div>
+                            {collection?.proxyName && (
+                              <p className="text-xs text-muted-foreground mt-1">Collected by: {collection.proxyName}</p>
                             )}
-                            {collection?.status === "pending" && (
-                              <Badge variant="secondary">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Pending
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex gap-4 mt-1 text-sm text-muted-foreground">
-                            <span className="font-medium">
-                              {calculateBoxesNeeded(formatFamilySize(referral))}{" "}
-                              {calculateBoxesNeeded(formatFamilySize(referral)) === 1 ? "box" : "boxes"}
-                            </span>
-                            <span>Family size: {formatFamilySize(referral)}</span>
-                            <span>Week {collection?.weekNumber} of 8</span>
-                            {collection?.collectedAt && <span>{formatTime(collection.collectedAt)}</span>}
                           </div>
                         </div>
                         {collection?.status === "pending" && (
-                          <Button onClick={() => handleMarkCollected(referral.id, collection.weekNumber)} size="sm">
-                            Mark Collected
-                          </Button>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Input
+                              placeholder="Proxy name (optional)"
+                              value={proxyName}
+                              onChange={(e) => setProxyName(e.target.value)}
+                              className="flex-1 h-11"
+                            />
+                            <Button
+                              onClick={() => handleMarkCollected(referral.id, collection.id, !!proxyName)}
+                              size="default"
+                              className="w-full sm:w-auto h-11"
+                            >
+                              Mark Collected
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardContent>
@@ -247,13 +367,94 @@ export default function CoordinatorPage() {
                 ))
               )}
             </div>
+
+            <div className="pt-4 border-t">
+              <Button onClick={() => setShowManualEntry(!showManualEntry)} variant="outline" className="w-full h-11">
+                {showManualEntry ? (
+                  <>
+                    <Minus className="mr-2 h-4 w-4" />
+                    Hide Manual Entry
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Manual Collection
+                  </>
+                )}
+              </Button>
+
+              {showManualEntry && (
+                <Card className="mt-4 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Manual Collection Entry</CardTitle>
+                    <CardDescription className="text-sm leading-relaxed">
+                      Add a collection for a specific referral and date
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-referral-id">Referral ID *</Label>
+                      <Input
+                        id="manual-referral-id"
+                        placeholder="Enter referral tracking ID..."
+                        value={manualEntryForm.referralId}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, referralId: e.target.value })}
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-date">Collection Date *</Label>
+                      <Input
+                        id="manual-date"
+                        type="date"
+                        value={manualEntryForm.collectionDate}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, collectionDate: e.target.value })}
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-proxy">Proxy Name (optional)</Label>
+                      <Input
+                        id="manual-proxy"
+                        placeholder="e.g., Family member name..."
+                        value={manualEntryForm.proxyName}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, proxyName: e.target.value })}
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-notes">Notes (optional)</Label>
+                      <Textarea
+                        id="manual-notes"
+                        placeholder="Add any notes about this collection..."
+                        value={manualEntryForm.notes}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, notes: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button onClick={handleManualEntry} className="flex-1 h-11">
+                        Add Collection
+                      </Button>
+                      <Button variant="outline" onClick={() => setShowManualEntry(false)} className="h-11">
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Info Card */}
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-accent/30 border-accent shadow-sm">
           <CardContent className="pt-6">
-            <p className="text-sm text-blue-900">
+            <p className="text-sm leading-relaxed">
               <strong>Note:</strong> At 11:59 PM, all pending collections will automatically be marked as no-shows and
               kits will be moved to pantry stock.
             </p>
