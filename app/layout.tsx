@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
 import { RoleSwitcher } from "@/components/role-switcher"
+import { CacheControl } from "@/components/cache-control"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -42,7 +43,10 @@ export default function RootLayout({
         <header className="border-b">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <h1 className="text-xl font-bold">Scottish Pantry Network</h1>
-            <RoleSwitcher />
+            <div className="flex items-center gap-3">
+              <CacheControl />
+              <RoleSwitcher />
+            </div>
           </div>
         </header>
         <main className="min-h-[calc(100vh-73px)]">{children}</main>

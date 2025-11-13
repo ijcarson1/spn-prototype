@@ -35,6 +35,7 @@ import type { Contract, Pantry, Referral, PlatformUser } from "@/lib/types"
 import { Users, Building, FileText, TrendingUp, Plus, Search, Edit, Eye } from "lucide-react"
 import { BarChart3 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Checkbox } from "@/components/ui/checkbox"
 
 function formatDate(date: string | Date, formatStr = "MMM d, yyyy"): string {
   const d = new Date(date)
@@ -226,30 +227,26 @@ export default function AdminDashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Contract Name</TableHead>
-                  <TableHead>Organization</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Pantries</TableHead>
+                  <TableHead>Cycle Length</TableHead>
                   <TableHead>Dates</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {contracts
-                  .filter(
-                    (c) =>
-                      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      c.organization.toLowerCase().includes(searchTerm.toLowerCase()),
-                  )
+                  .filter((c) => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
                   .map((contract) => (
                     <TableRow key={contract.id}>
                       <TableCell className="font-medium">{contract.name}</TableCell>
-                      <TableCell>{contract.organization}</TableCell>
                       <TableCell>
                         <Badge variant={contract.active ? "default" : "secondary"}>
                           {contract.active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
                       <TableCell>{contract.eligiblePantryIds?.length || 0} pantries</TableCell>
+                      <TableCell>{contract.cycleWeeks} weeks</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(contract.startDate)} - {formatDate(contract.endDate)}
                       </TableCell>
@@ -525,10 +522,9 @@ function ContractDialog({
   const [formData, setFormData] = useState<Partial<Contract>>(
     contract || {
       name: "",
-      organization: "",
       startDate: "",
       endDate: "",
-      cycleLength: 8,
+      cycleWeeks: 8,
       frequency: "weekly",
       eligiblePantryIds: [],
       surveyUrl: "",
@@ -537,7 +533,7 @@ function ContractDialog({
   )
 
   const handleSave = () => {
-    if (!formData.name || !formData.organization || !formData.startDate || !formData.endDate) {
+    if (!formData.name || !formData.startDate || !formData.endDate) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -579,14 +575,6 @@ function ContractDialog({
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="organization">Organization *</Label>
-            <Input
-              id="organization"
-              value={formData.organization}
-              onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-            />
-          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="startDate">Start Date *</Label>
@@ -616,16 +604,15 @@ function ContractDialog({
               placeholder="https://..."
             />
           </div>
-          {/* Fixed Contract dialog to show cycleWeeks */}
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="cycleLength">Cycle Length (Weeks) *</Label>
+              <Label htmlFor="cycleWeeks">Cycle Length (Weeks) *</Label>
               <Input
-                id="cycleLength"
+                id="cycleWeeks"
                 type="number"
                 min="1"
-                value={formData.cycleLength}
-                onChange={(e) => setFormData({ ...formData, cycleLength: Number.parseInt(e.target.value, 10) })}
+                value={formData.cycleWeeks}
+                onChange={(e) => setFormData({ ...formData, cycleWeeks: Number.parseInt(e.target.value, 10) })}
               />
             </div>
             <div className="grid gap-2">
@@ -1477,6 +1464,7 @@ function CreateReferralDialog({
     contractId: "",
     pantryId: "",
     fwwId: "", // Optional assignment to FWW
+    accessibilityFlag: false,
   })
 
   const totalHousehold = formData.adults + formData.childrenUnder5 + formData.children6to12 + formData.children13to18
@@ -1514,6 +1502,7 @@ function CreateReferralDialog({
         totalHousehold,
       },
       dietaryRequirements: formData.dietaryRequirements || undefined,
+      accessibilityFlag: formData.accessibilityFlag,
       pantryId: Number.parseInt(formData.pantryId, 10),
       fwwId: formData.fwwId ? Number.parseInt(formData.fwwId, 10) : 1, // Default to first FWW if not assigned
       cycles: [
@@ -1662,6 +1651,25 @@ function CreateReferralDialog({
               onChange={(e) => setFormData({ ...formData, dietaryRequirements: e.target.value })}
               placeholder="e.g., Vegetarian, Vegan, Halal, Gluten-free"
             />
+          </div>
+
+          <div className="flex items-start gap-2 border rounded-lg p-3 bg-muted/50">
+            <Checkbox
+              id="accessibilityFlag"
+              checked={formData.accessibilityFlag}
+              onCheckedChange={(checked) => setFormData({ ...formData, accessibilityFlag: checked as boolean })}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="accessibilityFlag"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Accessibility needs (Internal use only)
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Flag this referral if they may require delivery or have accessibility considerations
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-2">

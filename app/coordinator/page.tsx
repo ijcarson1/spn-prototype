@@ -1,21 +1,31 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getReferrals, getPantries, updateCollection, calculateBoxesNeeded } from "@/lib/data-service"
+import { getReferrals, getPantries, calculateBoxesNeeded, saveReferral } from "@/lib/data-service"
 import type { Referral, Pantry } from "@/lib/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { Search, CheckCircle, Clock } from "lucide-react"
+import { Label } from "@/components/ui/label"
 
 export default function CoordinatorPage() {
   const [referrals, setReferrals] = useState<Referral[]>([])
   const [pantry, setPantry] = useState<Pantry | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "family" | "time">("name")
+  const [showManualEntry, setShowManualEntry] = useState(false)
+  const [manualEntryForm, setManualEntryForm] = useState({
+    referralId: "",
+    proxyName: "",
+    collectionDate: new Date().toISOString().split("T")[0],
+    notes: "",
+  })
   const { toast } = useToast()
+  const [proxyName, setProxyName] = useState("")
 
   // For demo purposes, we'll use the first pantry coordinator (Tollcross)
   const coordinatorPantryId = 1
@@ -57,21 +67,39 @@ export default function CoordinatorPage() {
   const collected = todayCollections.filter((item) => item.collection?.status === "collected").length
   const pending = todayCollections.filter((item) => item.collection?.status === "pending").length
 
-  const handleMarkCollected = (referralId: string, weekNumber: number) => {
+  const handleMarkCollected = (referralId: string, collectionId: string, useProxy = false) => {
     const now = new Date().toISOString()
-    updateCollection(referralId, weekNumber, "collected", now)
+    const proxy = useProxy ? proxyName : undefined
 
-    // Refresh the data
+    const referrals = getReferrals()
+    const referral = referrals.find((r) => r.id === referralId)
+    if (referral) {
+      const collection = referral.collections.find((c) => c.id === collectionId)
+      if (collection) {
+        collection.status = "collected"
+        collection.collectedAt = now
+        collection.collectedBy = "Pantry Coordinator"
+        if (proxy) {
+          collection.proxyName = proxy
+        }
+        referral.collectionsCompleted++
+        referral.updatedAt = now
+        saveReferral(referral)
+      }
+    }
+
+    // Refresh data
     const allReferrals = getReferrals()
     const todayStr = today.toISOString().split("T")[0]
     const todaysReferrals = allReferrals.filter((referral) => {
       return referral.pantryId === coordinatorPantryId && referral.collections.some((c) => c.expectedDate === todayStr)
     })
     setReferrals(todaysReferrals)
+    setProxyName("")
 
     toast({
       title: "Collection marked",
-      description: "Successfully marked as collected",
+      description: proxy ? `Collected by proxy: ${proxy}` : "Successfully marked as collected",
     })
   }
 
@@ -125,6 +153,80 @@ export default function CoordinatorPage() {
     return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
   }
 
+  const handleManualEntry = () => {
+    const allReferrals = getReferrals()
+    const referral = allReferrals.find((r) => r.id.toLowerCase() === manualEntryForm.referralId.toLowerCase())
+
+    if (!referral) {
+      toast({
+        title: "Referral Not Found",
+        description: "Please check the referral ID and try again.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (referral.pantryId !== coordinatorPantryId) {
+      toast({
+        title: "Wrong Pantry",
+        description: "This referral is assigned to a different pantry.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Find current active cycle
+    const activeCycle = referral.cycles.find((c) => c.status === "active")
+    if (!activeCycle) {
+      toast({
+        title: "No Active Cycle",
+        description: "This referral does not have an active cycle.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Create manual collection entry
+    const newCollection = {
+      id: `${referral.id}-manual-${Date.now()}`,
+      referralId: referral.id,
+      weekNumber: referral.collections.length + 1,
+      expectedDate: manualEntryForm.collectionDate,
+      status: "collected" as const,
+      collectedAt: new Date().toISOString(),
+      collectedBy: "Pantry Coordinator (Manual Entry)",
+      proxyName: manualEntryForm.proxyName || undefined,
+      pantryId: coordinatorPantryId,
+      contractId: activeCycle.contractId,
+      notes: manualEntryForm.notes || undefined,
+      manualEntry: true,
+    }
+
+    referral.collections.push(newCollection)
+    referral.collectionsCompleted++
+    saveReferral(referral)
+
+    // Reset form and refresh data
+    setManualEntryForm({
+      referralId: "",
+      proxyName: "",
+      collectionDate: new Date().toISOString().split("T")[0],
+      notes: "",
+    })
+    setShowManualEntry(false)
+
+    const todayStr = today.toISOString().split("T")[0]
+    const todaysReferrals = getReferrals().filter((r) => {
+      return r.pantryId === coordinatorPantryId && r.collections.some((c) => c.expectedDate === todayStr)
+    })
+    setReferrals(todaysReferrals)
+
+    toast({
+      title: "Collection Added",
+      description: `Manual collection entry added for ${referral.firstName} ${referral.lastName}`,
+    })
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="space-y-6">
@@ -170,7 +272,7 @@ export default function CoordinatorPage() {
         <Card>
           <CardHeader>
             <CardTitle>Collections</CardTitle>
-            <CardDescription>Search and mark collections as completed</CardDescription>
+            <CardDescription>Mark collections as completed (name-based by default, QR optional)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-2">
@@ -217,6 +319,7 @@ export default function CoordinatorPage() {
                               <Badge variant="default" className="bg-green-600">
                                 <CheckCircle className="w-3 h-3 mr-1" />
                                 Collected
+                                {collection.proxyName && ` (by ${collection.proxyName})`}
                               </Badge>
                             )}
                             {collection?.status === "pending" && (
@@ -237,14 +340,91 @@ export default function CoordinatorPage() {
                           </div>
                         </div>
                         {collection?.status === "pending" && (
-                          <Button onClick={() => handleMarkCollected(referral.id, collection.weekNumber)} size="sm">
-                            Mark Collected
-                          </Button>
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              placeholder="Proxy name (optional)"
+                              value={proxyName}
+                              onChange={(e) => setProxyName(e.target.value)}
+                              className="w-40"
+                            />
+                            <Button
+                              onClick={() => handleMarkCollected(referral.id, collection.id, !!proxyName)}
+                              size="sm"
+                            >
+                              Mark Collected
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardContent>
                   </Card>
                 ))
+              )}
+            </div>
+
+            <div className="pt-4 border-t">
+              <Button onClick={() => setShowManualEntry(!showManualEntry)} variant="outline" className="w-full">
+                {showManualEntry ? "Hide" : "Add Manual Collection Entry"}
+              </Button>
+
+              {showManualEntry && (
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Manual Collection Entry</CardTitle>
+                    <CardDescription>Add a collection for a specific referral and date</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-referral-id">Referral ID *</Label>
+                      <Input
+                        id="manual-referral-id"
+                        placeholder="Enter referral tracking ID..."
+                        value={manualEntryForm.referralId}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, referralId: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-date">Collection Date *</Label>
+                      <Input
+                        id="manual-date"
+                        type="date"
+                        value={manualEntryForm.collectionDate}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, collectionDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-proxy">Proxy Name (if collected by someone else)</Label>
+                      <Input
+                        id="manual-proxy"
+                        placeholder="e.g., Family member name..."
+                        value={manualEntryForm.proxyName}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, proxyName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-notes">Notes (optional)</Label>
+                      <Textarea
+                        id="manual-notes"
+                        placeholder="Add any notes about this collection..."
+                        value={manualEntryForm.notes}
+                        onChange={(e) => setManualEntryForm({ ...manualEntryForm, notes: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button onClick={handleManualEntry} className="flex-1">
+                        Add Collection
+                      </Button>
+                      <Button variant="outline" onClick={() => setShowManualEntry(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </div>
           </CardContent>
