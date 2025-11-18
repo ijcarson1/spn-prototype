@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react"
 import { getReferrals } from "@/lib/data-service"
 import type { Referral } from "@/lib/types"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { ChevronRight, Smartphone } from 'lucide-react'
 
 export default function TrackPage() {
@@ -17,7 +16,6 @@ export default function TrackPage() {
   }, [])
 
   if (selectedReferral) {
-    // Redirect to specific tracking page
     window.location.href = `/track/${selectedReferral.id}`
     return null
   }
@@ -41,19 +39,19 @@ export default function TrackPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-            <Smartphone className="h-6 w-6 text-primary" />
+      <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="text-center space-y-3">
+          <div className="mx-auto h-12 w-12 rounded-xl bg-foreground flex items-center justify-center mb-6">
+            <Smartphone className="h-5 w-5 text-background" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Track Your Collection</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight">Track Your Collection</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
             Select your profile to view your collection schedule and status.
           </p>
         </div>
 
-        <Card className="border-none shadow-xl shadow-black/5 overflow-hidden">
-          <div className="divide-y divide-border/50">
+        <Card className="border border-border/50 shadow-lg overflow-hidden">
+          <div className="divide-y divide-border/40">
             {referrals
               .filter((r) => getReferralStatus(r) === "active")
               .slice(0, 10)
@@ -62,15 +60,15 @@ export default function TrackPage() {
                 return (
                   <button
                     key={referral.id}
-                    className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-left group"
+                    className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-all duration-200 text-left group"
                     onClick={() => setSelectedReferral(referral)}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-medium text-sm">
+                    <div className="flex items-center gap-3.5">
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
                         {referral.firstName[0]}{referral.lastName[0]}
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground group-hover:text-primary transition-colors">
+                      <div className="space-y-0.5">
+                        <p className="font-medium text-foreground text-sm">
                           {referral.firstName} {referral.lastName}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -78,12 +76,12 @@ export default function TrackPage() {
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 )
               })}
             {referrals.filter((r) => getReferralStatus(r) === "active").length === 0 && (
-              <div className="p-8 text-center">
+              <div className="p-12 text-center">
                 <p className="text-sm text-muted-foreground">
                   No active referrals available for tracking
                 </p>
@@ -92,8 +90,8 @@ export default function TrackPage() {
           </div>
         </Card>
         
-        <p className="text-xs text-center text-muted-foreground/50">
-          Secure tracking portal • Scottish Pantry Network
+        <p className="text-xs text-center text-muted-foreground/60">
+          Secure tracking portal · Scottish Pantry Network
         </p>
       </div>
     </div>

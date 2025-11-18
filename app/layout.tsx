@@ -39,25 +39,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased bg-background text-foreground selection:bg-primary/10 selection:text-primary`}>
-        <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-          <div className="container mx-auto px-4 py-3 md:py-4">
+      <body className={`font-sans antialiased bg-background text-foreground selection:bg-foreground/10 selection:text-foreground`}>
+        <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-background/60">
+          <div className="container mx-auto px-4 lg:px-6 py-3">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {/* Added a subtle logo placeholder or icon if needed, keeping text for now but styled better */}
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <span className="text-primary font-bold text-lg">S</span>
+              <div className="flex items-center gap-3">
+                <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
+                  <span className="text-background font-bold text-base">S</span>
                 </div>
-                <h1 className="text-lg md:text-xl font-bold tracking-tight text-foreground">Scottish Pantry Network</h1>
+                <h1 className="text-base font-semibold tracking-tight text-foreground">Scottish Pantry Network</h1>
               </div>
-              <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-2">
                 <CacheControl />
                 <RoleSwitcher />
               </div>
             </div>
           </div>
         </header>
-        <main className="min-h-[calc(100vh-73px)] animate-in fade-in duration-500">{children}</main>
+        <main className="min-h-[calc(100vh-57px)] animate-in fade-in duration-700">{children}</main>
         <Toaster />
       </body>
     </html>
