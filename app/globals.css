@@ -1,7 +1,8 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Removed tw-animate-css import that was causing CSS parsing errors */
 
 /* Updated to warm mocha-inspired color palette from Cursor design */
 :root {
