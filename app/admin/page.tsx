@@ -32,9 +32,9 @@ import {
   calculateBoxesNeeded,
 } from "@/lib/data-service"
 import type { Contract, Pantry, Referral, PlatformUser } from "@/lib/types"
-import { Users, Building, FileText, TrendingUp, Plus, Search, Edit, Eye } from "lucide-react"
-import { BarChart3 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { Users, Building, FileText, TrendingUp, Plus, Search, Edit, Eye } from 'lucide-react'
+import { BarChart3 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Checkbox } from "@/components/ui/checkbox"
 
 function formatDate(date: string | Date, formatStr = "MMM d, yyyy"): string {
@@ -84,116 +84,134 @@ export default function AdminDashboard() {
   const fwws = platformUsers.filter((u) => u.role === "fww")
 
   return (
-    <div className="container mx-auto p-4 space-y-6 max-w-7xl">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 md:p-8 space-y-8 max-w-7xl min-h-screen bg-background">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage contracts, pantries, and monitor the network</p>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
+          <p className="text-muted-foreground text-lg mt-1">Network overview and management</p>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="contracts">Contracts</TabsTrigger>
-          <TabsTrigger value="pantries">Pantries</TabsTrigger>
-          <TabsTrigger value="referrals">Referrals</TabsTrigger>
-          <TabsTrigger value="users">Platform Users</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="overview" className="w-full space-y-8">
+        <div className="sticky top-[73px] z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2 -mx-4 px-4 md:mx-0 md:px-0 border-b md:border-none border-border/40">
+          <TabsList className="w-full justify-start overflow-x-auto h-auto p-1 bg-muted/50 rounded-xl gap-1">
+            <TabsTrigger value="overview" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Overview</TabsTrigger>
+            <TabsTrigger value="contracts" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Contracts</TabsTrigger>
+            <TabsTrigger value="pantries" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Pantries</TabsTrigger>
+            <TabsTrigger value="referrals" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Referrals</TabsTrigger>
+            <TabsTrigger value="users" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Users</TabsTrigger>
+            <TabsTrigger value="reports" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Reports</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+        <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-none shadow-lg shadow-black/5 hover:shadow-xl transition-all">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Referrals</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Active Referrals</CardTitle>
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeReferrals}</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-3xl font-bold">{activeReferrals}</div>
+                <p className="text-xs text-muted-foreground mt-1">
                   {referrals.filter((r) => getReferralStatus(r) === "completed").length} completed
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5 hover:shadow-xl transition-all">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Contracts</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Contracts</CardTitle>
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{contracts.length}</div>
-                <p className="text-xs text-muted-foreground">{contracts.filter((c) => c.active).length} active</p>
+                <div className="text-3xl font-bold">{contracts.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">{contracts.filter((c) => c.active).length} active</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5 hover:shadow-xl transition-all">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Pantries</CardTitle>
-                <Building className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Pantries</CardTitle>
+                <div className="p-2 bg-orange-500/10 rounded-lg">
+                  <Building className="h-4 w-4 text-orange-500" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{pantries.length}</div>
-                <p className="text-xs text-muted-foreground">{pantries.filter((p) => p.active).length} active</p>
+                <div className="text-3xl font-bold">{pantries.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">{pantries.filter((p) => p.active).length} active</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5 hover:shadow-xl transition-all">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">FWWs</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">FWWs</CardTitle>
+                <div className="p-2 bg-purple-500/10 rounded-lg">
+                  <TrendingUp className="h-4 w-4 text-purple-500" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{fwws.length}</div>
-                {/* Updated text from "Active food workers" to "Family Wellbeing Workers" */}
-                <p className="text-xs text-muted-foreground">Family Wellbeing Workers</p>
+                <div className="text-3xl font-bold">{fwws.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Family Wellbeing Workers</p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="border-none shadow-lg shadow-black/5">
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 <ContractDialog onSave={loadData} contracts={contracts} pantries={pantries}>
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <Plus className="mr-2 h-4 w-4" />
+                  <Button className="w-full justify-start h-12 text-base font-medium" variant="outline">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                      <Plus className="h-4 w-4 text-primary" />
+                    </div>
                     Create New Contract
                   </Button>
                 </ContractDialog>
                 <PantryDialog onSave={loadData} contracts={contracts}>
-                  <Button className="w-full justify-start bg-transparent" variant="outline">
-                    <Plus className="mr-2 h-4 w-4" />
+                  <Button className="w-full justify-start h-12 text-base font-medium" variant="outline">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                      <Plus className="h-4 w-4 text-primary" />
+                    </div>
                     Create New Pantry
                   </Button>
                 </PantryDialog>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5">
               <CardHeader>
                 <CardTitle>Recent Referrals</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {referrals
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                     .slice(0, 5)
                     .map((referral) => {
                       const fww = platformUsers.find((u) => u.id === referral.fwwId)
                       return (
-                        <div key={referral.id} className="flex items-center text-sm">
-                          <div className="flex-1">
-                            <p className="font-medium">
-                              {referral.firstName} {referral.lastName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">Referred by {fww?.name || "Unknown"}</p>
+                        <div key={referral.id} className="flex items-center justify-between group">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center font-medium">
+                              {referral.firstName[0]}{referral.lastName[0]}
+                            </div>
+                            <div>
+                              <p className="font-medium group-hover:text-primary transition-colors">
+                                {referral.firstName} {referral.lastName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Referred by {fww?.name || "Unknown"}</p>
+                            </div>
                           </div>
-                          <Badge variant="outline">{formatDate(referral.createdAt)}</Badge>
+                          <Badge variant="outline" className="bg-background">{formatDate(referral.createdAt)}</Badge>
                         </div>
                       )
                     })}
@@ -204,44 +222,45 @@ export default function AdminDashboard() {
         </TabsContent>
 
         {/* Contracts Tab */}
-        <TabsContent value="contracts" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-1 max-w-sm">
-              <Search className="h-4 w-4 text-muted-foreground" />
+        <TabsContent value="contracts" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search contracts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11 bg-background border-border/50 shadow-sm"
               />
             </div>
             <ContractDialog onSave={loadData} contracts={contracts} pantries={pantries}>
-              <Button>
+              <Button size="lg" className="w-full md:w-auto shadow-lg shadow-primary/20">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Contract
               </Button>
             </ContractDialog>
           </div>
 
-          <Card>
+          <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Contract Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Pantries</TableHead>
-                  <TableHead>Cycle Length</TableHead>
-                  <TableHead>Dates</TableHead>
-                  <TableHead>Actions</TableHead>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent border-none">
+                  <TableHead className="font-semibold">Contract Name</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold">Pantries</TableHead>
+                  <TableHead className="font-semibold">Cycle Length</TableHead>
+                  <TableHead className="font-semibold">Dates</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {contracts
                   .filter((c) => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
                   .map((contract) => (
-                    <TableRow key={contract.id}>
+                    <TableRow key={contract.id} className="hover:bg-muted/30 border-border/50">
                       <TableCell className="font-medium">{contract.name}</TableCell>
                       <TableCell>
-                        <Badge variant={contract.active ? "default" : "secondary"}>
+                        <Badge variant={contract.active ? "default" : "secondary"} className={contract.active ? "bg-green-500/15 text-green-700 hover:bg-green-500/25 border-0" : ""}>
                           {contract.active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
@@ -250,9 +269,9 @@ export default function AdminDashboard() {
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(contract.startDate)} - {formatDate(contract.endDate)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         <ContractDialog contract={contract} onSave={loadData} contracts={contracts} pantries={pantries}>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
                             <Edit className="h-4 w-4" />
                           </Button>
                         </ContractDialog>
@@ -265,34 +284,35 @@ export default function AdminDashboard() {
         </TabsContent>
 
         {/* Pantries Tab */}
-        <TabsContent value="pantries" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-1 max-w-sm">
-              <Search className="h-4 w-4 text-muted-foreground" />
+        <TabsContent value="pantries" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search pantries..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11 bg-background border-border/50 shadow-sm"
               />
             </div>
             <PantryDialog onSave={loadData} contracts={contracts}>
-              <Button>
+              <Button size="lg" className="w-full md:w-auto shadow-lg shadow-primary/20">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Pantry
               </Button>
             </PantryDialog>
           </div>
 
-          <Card>
+          <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pantry Name</TableHead>
-                  <TableHead>Region</TableHead>
-                  <TableHead>Coordinator</TableHead>
-                  <TableHead>Contracts</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent border-none">
+                  <TableHead className="font-semibold">Pantry Name</TableHead>
+                  <TableHead className="font-semibold">Region</TableHead>
+                  <TableHead className="font-semibold">Coordinator</TableHead>
+                  <TableHead className="font-semibold">Contracts</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -303,19 +323,19 @@ export default function AdminDashboard() {
                       p.region.toLowerCase().includes(searchTerm.toLowerCase()),
                   )
                   .map((pantry) => (
-                    <TableRow key={pantry.id}>
+                    <TableRow key={pantry.id} className="hover:bg-muted/30 border-border/50">
                       <TableCell className="font-medium">{pantry.name}</TableCell>
                       <TableCell>{pantry.region}</TableCell>
                       <TableCell>{pantry.coordinator}</TableCell>
                       <TableCell>{Object.keys(pantry.contractCollectionDays || {}).length} contracts</TableCell>
                       <TableCell>
-                        <Badge variant={pantry.active ? "default" : "secondary"}>
+                        <Badge variant={pantry.active ? "default" : "secondary"} className={pantry.active ? "bg-green-500/15 text-green-700 hover:bg-green-500/25 border-0" : ""}>
                           {pantry.active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         <PantryDialog pantry={pantry} onSave={loadData} contracts={contracts}>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
                             <Edit className="h-4 w-4" />
                           </Button>
                         </PantryDialog>
@@ -328,18 +348,19 @@ export default function AdminDashboard() {
         </TabsContent>
 
         {/* Referrals Tab */}
-        <TabsContent value="referrals" className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 flex-1 max-w-sm">
-              <Search className="h-4 w-4 text-muted-foreground" />
+        <TabsContent value="referrals" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search referrals..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-11 bg-background border-border/50 shadow-sm"
               />
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full md:w-[180px] h-11 bg-background border-border/50 shadow-sm">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -355,24 +376,24 @@ export default function AdminDashboard() {
               pantries={pantries}
               platformUsers={platformUsers}
             >
-              <Button>
+              <Button size="lg" className="w-full md:w-auto shadow-lg shadow-primary/20 ml-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Referral
               </Button>
             </CreateReferralDialog>
           </div>
 
-          <Card>
+          <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contract</TableHead>
-                  <TableHead>Pantry</TableHead>
-                  <TableHead>Boxes</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>FWW</TableHead>
-                  <TableHead>Actions</TableHead>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent border-none">
+                  <TableHead className="font-semibold">Name</TableHead>
+                  <TableHead className="font-semibold">Contract</TableHead>
+                  <TableHead className="font-semibold">Pantry</TableHead>
+                  <TableHead className="font-semibold">Boxes</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold">FWW</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -394,7 +415,7 @@ export default function AdminDashboard() {
                     const boxesNeeded = calculateBoxesNeeded(referral.familyComposition?.totalHousehold || 0)
 
                     return (
-                      <TableRow key={referral.id}>
+                      <TableRow key={referral.id} className="hover:bg-muted/30 border-border/50">
                         <TableCell className="font-medium">
                           {referral.firstName} {referral.lastName}
                         </TableCell>
@@ -407,13 +428,16 @@ export default function AdminDashboard() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={status === "active" ? "default" : "secondary"}>{status}</Badge>
+                          <Badge variant={status === "active" ? "default" : "secondary"} className={status === "active" ? "bg-green-500/15 text-green-700 hover:bg-green-500/25 border-0" : ""}>
+                            {status}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-sm">{fww?.name || "N/A"}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={() => router.push(`/fww/referrals/${referral.id}`)}
                           >
                             <Eye className="h-4 w-4" />
@@ -428,39 +452,39 @@ export default function AdminDashboard() {
         </TabsContent>
 
         {/* Platform Users Tab */}
-        <TabsContent value="users" className="space-y-4">
+        <TabsContent value="users" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Platform Users (FWW, Admins, Coordinators)</h3>
+            <h3 className="text-lg font-semibold">Platform Users</h3>
             <PlatformUserDialog onSave={loadData} contracts={contracts} pantries={pantries}>
-              <Button>
+              <Button size="lg" className="shadow-lg shadow-primary/20">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Platform User
+                Add User
               </Button>
             </PlatformUserDialog>
           </div>
 
-          <Card>
+          <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Organization</TableHead>
-                  <TableHead>Assignments</TableHead>
-                  <TableHead>Actions</TableHead>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent border-none">
+                  <TableHead className="font-semibold">Name</TableHead>
+                  <TableHead className="font-semibold">Email</TableHead>
+                  <TableHead className="font-semibold">Role</TableHead>
+                  <TableHead className="font-semibold">Organization</TableHead>
+                  <TableHead className="font-semibold">Assignments</TableHead>
+                  <TableHead className="font-semibold text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {platformUsers.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} className="hover:bg-muted/30 border-border/50">
                     <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge>{user.role.toUpperCase()}</Badge>
+                      <Badge variant="outline" className="bg-background">{user.role.toUpperCase()}</Badge>
                     </TableCell>
                     <TableCell>{user.organization || "N/A"}</TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-sm max-w-[200px] truncate">
                       {user.role === "fww" &&
                         user.assignedContractIds &&
                         user.assignedContractIds.length > 0 &&
@@ -477,9 +501,9 @@ export default function AdminDashboard() {
                           .join(", ")}
                       {user.role === "admin" && "N/A"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <PlatformUserDialog user={user} onSave={loadData} contracts={contracts} pantries={pantries}>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <Edit className="h-4 w-4" />
                         </Button>
                       </PlatformUserDialog>
@@ -491,7 +515,7 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="reports" className="space-y-4">
+        <TabsContent value="reports" className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <ReportsSection
             users={referrals}
             contracts={contracts}
@@ -1021,10 +1045,10 @@ function ReportsSection({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Tabs value={reportType} onValueChange={(v) => setReportType(v as any)} className="w-full">
-          <TabsList>
-            <TabsTrigger value="collections">Collections Report</TabsTrigger>
-            <TabsTrigger value="referrals">Referrals Report</TabsTrigger>
-            <TabsTrigger value="uptake">Uptake Report</TabsTrigger>
+          <TabsList className="w-full justify-start overflow-x-auto h-auto p-1 bg-muted/50 rounded-xl gap-1">
+            <TabsTrigger value="collections" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Collections Report</TabsTrigger>
+            <TabsTrigger value="referrals" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Referrals Report</TabsTrigger>
+            <TabsTrigger value="uptake" className="rounded-lg py-2.5 px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">Uptake Report</TabsTrigger>
           </TabsList>
 
           <div className="mt-4 flex justify-end">
@@ -1035,22 +1059,22 @@ function ReportsSection({
           </div>
 
           {/* Collections Report */}
-          <TabsContent value="collections" className="space-y-4">
+          <TabsContent value="collections" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid gap-4 md:grid-cols-3">
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Collections</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Collections</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{collectionsData.reduce((sum, d) => sum + d.collected, 0)}</div>
+                  <div className="text-3xl font-bold">{collectionsData.reduce((sum, d) => sum + d.collected, 0)}</div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Overall Attendance</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Overall Attendance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-bold">
                     {Math.round(
                       collectionsData.reduce((sum, d) => sum + d.attendance, 0) / Math.max(collectionsData.length, 1),
                     )}
@@ -1058,34 +1082,34 @@ function ReportsSection({
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total No-Shows</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total No-Shows</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{collectionsData.reduce((sum, d) => sum + d.noShows, 0)}</div>
+                  <div className="text-3xl font-bold">{collectionsData.reduce((sum, d) => sum + d.noShows, 0)}</div>
                 </CardContent>
               </Card>
             </div>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
               <CardHeader>
                 <CardTitle>By Pantry</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Pantry Name</TableHead>
-                      <TableHead>Expected</TableHead>
-                      <TableHead>Collected</TableHead>
-                      <TableHead>No-Shows</TableHead>
-                      <TableHead>Attendance %</TableHead>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="font-semibold">Pantry Name</TableHead>
+                      <TableHead className="font-semibold">Expected</TableHead>
+                      <TableHead className="font-semibold">Collected</TableHead>
+                      <TableHead className="font-semibold">No-Shows</TableHead>
+                      <TableHead className="font-semibold">Attendance %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {collectionsData.map((data, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={i} className="hover:bg-muted/30 border-border/50">
                         <TableCell className="font-medium">{data.pantry}</TableCell>
                         <TableCell>{data.expected}</TableCell>
                         <TableCell>{data.collected}</TableCell>
@@ -1098,24 +1122,24 @@ function ReportsSection({
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
               <CardHeader>
                 <CardTitle>By Contract</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Contract Name</TableHead>
-                      <TableHead>Expected</TableHead>
-                      <TableHead>Collected</TableHead>
-                      <TableHead>No-Shows</TableHead>
-                      <TableHead>Attendance %</TableHead>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="font-semibold">Contract Name</TableHead>
+                      <TableHead className="font-semibold">Expected</TableHead>
+                      <TableHead className="font-semibold">Collected</TableHead>
+                      <TableHead className="font-semibold">No-Shows</TableHead>
+                      <TableHead className="font-semibold">Attendance %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contractCollections.map((data, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={i} className="hover:bg-muted/30 border-border/50">
                         <TableCell className="font-medium">{data.contract}</TableCell>
                         <TableCell>{data.expected}</TableCell>
                         <TableCell>{data.collected}</TableCell>
@@ -1130,51 +1154,51 @@ function ReportsSection({
           </TabsContent>
 
           {/* Referrals Report */}
-          <TabsContent value="referrals" className="space-y-4">
+          <TabsContent value="referrals" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid gap-4 md:grid-cols-3">
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Total Referrals</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Referrals</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{users.length}</div>
+                  <div className="text-3xl font-bold">{users.length}</div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Active FWWs</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Active FWWs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{fwws.length}</div>
+                  <div className="text-3xl font-bold">{fwws.length}</div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Active Contracts</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Active Contracts</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{contracts.filter((c) => c.active).length}</div>
+                  <div className="text-3xl font-bold">{contracts.filter((c) => c.active).length}</div>
                 </CardContent>
               </Card>
             </div>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
               <CardHeader>
                 <CardTitle>By FWW</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>FWW Name</TableHead>
-                      <TableHead>Referrals Created</TableHead>
-                      <TableHead>Contracts Used</TableHead>
-                      <TableHead>Most Recent</TableHead>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="font-semibold">FWW Name</TableHead>
+                      <TableHead className="font-semibold">Referrals Created</TableHead>
+                      <TableHead className="font-semibold">Contracts Used</TableHead>
+                      <TableHead className="font-semibold">Most Recent</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {referralsData.map((data, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={i} className="hover:bg-muted/30 border-border/50">
                         <TableCell className="font-medium">{data.fww}</TableCell>
                         <TableCell>{data.referrals}</TableCell>
                         <TableCell>{data.contracts}</TableCell>
@@ -1188,24 +1212,24 @@ function ReportsSection({
           </TabsContent>
 
           {/* Uptake Report */}
-          <TabsContent value="uptake" className="space-y-4">
+          <TabsContent value="uptake" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid gap-4 md:grid-cols-3">
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Overall Attendance</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Overall Attendance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-bold">
                     {Math.round(uptakeData.reduce((sum, d) => sum + d.attendance, 0) / Math.max(uptakeData.length, 1))}%
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Users with 100% Attendance</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Users with 100% Attendance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-bold">
                     {
                       users.filter((u) => {
                         const currentCycle = u.cycles && u.cycles.length > 0 ? u.cycles[u.cycles.length - 1] : null
@@ -1216,12 +1240,12 @@ function ReportsSection({
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-none shadow-lg shadow-black/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Users with &lt;50% Attendance</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Users with &lt;50% Attendance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-bold">
                     {
                       users.filter((u) => {
                         const currentCycle = u.cycles && u.cycles.length > 0 ? u.cycles[u.cycles.length - 1] : null
@@ -1234,22 +1258,22 @@ function ReportsSection({
               </Card>
             </div>
 
-            <Card>
+            <Card className="border-none shadow-lg shadow-black/5 overflow-hidden">
               <CardHeader>
                 <CardTitle>By Contract</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Contract</TableHead>
-                      <TableHead>Active Users</TableHead>
-                      <TableHead>Avg Attendance %</TableHead>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="font-semibold">Contract</TableHead>
+                      <TableHead className="font-semibold">Active Users</TableHead>
+                      <TableHead className="font-semibold">Avg Attendance %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {uptakeData.map((data, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={i} className="hover:bg-muted/30 border-border/50">
                         <TableCell className="font-medium">{data.contract}</TableCell>
                         <TableCell>{data.activeUsers}</TableCell>
                         <TableCell>{data.attendance}%</TableCell>

@@ -5,6 +5,7 @@ import { getReferrals } from "@/lib/data-service"
 import type { Referral } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChevronRight, Smartphone } from 'lucide-react'
 
 export default function TrackPage() {
   const [referrals, setReferrals] = useState<Referral[]>([])
@@ -39,49 +40,62 @@ export default function TrackPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold">SPN - Tracking</h1>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center space-y-2">
+          <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+            <Smartphone className="h-6 w-6 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Track Your Collection</h1>
+          <p className="text-muted-foreground">
+            Select your profile to view your collection schedule and status.
+          </p>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>End User Tracking</CardTitle>
-            <CardDescription>
-              Select a referral to view their tracking page (simulates accessing via SMS link)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              {referrals
-                .filter((r) => getReferralStatus(r) === "active")
-                .slice(0, 10)
-                .map((referral) => {
-                  const currentCycle = getCurrentCycle(referral)
-                  return (
-                    <Button
-                      key={referral.id}
-                      variant="outline"
-                      className="w-full justify-start bg-transparent"
-                      onClick={() => setSelectedReferral(referral)}
-                    >
-                      {referral.firstName} {referral.lastName}
-                      {currentCycle && ` - Active Referral`}
-                    </Button>
-                  )
-                })}
-              {referrals.filter((r) => getReferralStatus(r) === "active").length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
+        <Card className="border-none shadow-xl shadow-black/5 overflow-hidden">
+          <div className="divide-y divide-border/50">
+            {referrals
+              .filter((r) => getReferralStatus(r) === "active")
+              .slice(0, 10)
+              .map((referral) => {
+                const currentCycle = getCurrentCycle(referral)
+                return (
+                  <button
+                    key={referral.id}
+                    className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-left group"
+                    onClick={() => setSelectedReferral(referral)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-medium text-sm">
+                        {referral.firstName[0]}{referral.lastName[0]}
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground group-hover:text-primary transition-colors">
+                          {referral.firstName} {referral.lastName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {currentCycle ? "Active Referral" : "Inactive"}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                  </button>
+                )
+              })}
+            {referrals.filter((r) => getReferralStatus(r) === "active").length === 0 && (
+              <div className="p-8 text-center">
+                <p className="text-sm text-muted-foreground">
                   No active referrals available for tracking
                 </p>
-              )}
-            </div>
-          </CardContent>
+              </div>
+            )}
+          </div>
         </Card>
-      </main>
+        
+        <p className="text-xs text-center text-muted-foreground/50">
+          Secure tracking portal • Scottish Pantry Network
+        </p>
+      </div>
     </div>
   )
 }
