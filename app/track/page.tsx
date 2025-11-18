@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { getReferrals } from "@/lib/data-service"
 import type { Referral } from "@/lib/types"
 import { Card } from "@/components/ui/card"
-import { ChevronRight, Smartphone } from 'lucide-react'
+import { ChevronRight, Phone } from 'lucide-react'
 
 export default function TrackPage() {
   const [referrals, setReferrals] = useState<Referral[]>([])
@@ -21,7 +21,7 @@ export default function TrackPage() {
   }
 
   const getCurrentCycle = (referral: Referral) => {
-    if (!referral.cycles || referral.cycles.length === 0) return null
+    if (!referrals.cycles || referral.cycles.length === 0) return null
     return referral.cycles[referral.cycles.length - 1]
   }
 
@@ -42,7 +42,7 @@ export default function TrackPage() {
       <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="text-center space-y-3">
           <div className="mx-auto h-12 w-12 rounded-xl bg-foreground flex items-center justify-center mb-6">
-            <Smartphone className="h-5 w-5 text-background" />
+            <Phone className="h-5 w-5 text-background" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">Track Your Collection</h1>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">

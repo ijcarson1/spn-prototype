@@ -4,7 +4,6 @@ import { useEffect } from "react"
 import { useRouter } from 'next/navigation'
 import { initializeData, getCurrentRole } from "@/lib/data-service"
 import { Spinner } from "@/components/ui/spinner"
-import { ArrowRight } from 'lucide-react'
 
 export default function HomePage() {
   const router = useRouter()
